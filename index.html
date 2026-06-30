@@ -135,7 +135,7 @@
   <!-- MY CHECKS -->
   <section id="view-check" class="view hidden">
     <div class="panel"><div class="row-f"><h2 style="margin:0">My bin checks</h2><div class="grow"></div>
-      <button class="act" id="loadMine">Load my list</button></div>
+      <button class="ghost act" id="loadMine">↻ Get latest</button></div>
       <div id="myProgress"></div></div>
     <div class="panel" id="cardPanel"><div class="empty">Press the button above to load your list.</div></div>
   </section>
@@ -151,6 +151,7 @@
     <div class="panel">
       <div class="row-f"><h2 style="margin:0">Bin detail, product totals &amp; consolidation</h2><div class="grow"></div>
         <button class="act" id="loadDetail">Load team entries</button>
+        <button class="ghost act" id="refreshDetail">↻ Refresh</button>
         <button class="ghost act" id="appriseBtn">Apprise export (incorrect bins)</button>
         <span id="detailMsg" class="note"></span></div>
       <div class="nav" id="detailTabs" style="margin:6px 0"></div>
@@ -178,6 +179,24 @@
       <div class="row-f"><button class="ghost act" id="addDiv">+ Add division</button>
         <label>Re-check after</label><input class="in" type="number" id="setWindow" value="7" min="1" style="width:64px"> days</div>
       <div class="row-f"><button class="act" id="saveSettings">Save settings &amp; team</button><span id="setMsg" class="note"></span></div>
+    </div>
+  </section>
+
+  <!-- REPORTS -->
+  <section id="view-rep" class="view hidden">
+    <div class="panel">
+      <div class="row-f"><h2 style="margin:0">Reports &amp; counter KPIs</h2><div class="grow"></div>
+        <button class="ghost act" id="repPrint">🖨 Print</button></div>
+      <div class="row-f">
+        <label>From</label><input class="in" type="date" id="repFrom">
+        <label>To</label><input class="in" type="date" id="repTo">
+        <button class="act" id="repRun">Run</button>
+        <button class="ghost act" id="repToday">Today</button>
+        <button class="ghost act" id="repWeek">Last 7 days</button>
+        <button class="ghost act" id="repMonth">Last 30 days</button>
+        <span id="repMsg" class="note"></span>
+      </div>
+      <div id="repBody"><div class="empty">Pick a range (or a quick button) and press Run.</div></div>
     </div>
   </section>
 
@@ -304,7 +323,7 @@ function enter(){
 }
 $('signout').onclick=()=>{ME='';ROLE='';$('app').classList.add('hidden');$('gate').classList.remove('hidden');$('gateErr').innerHTML='';};
 
-const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['set','Team & Settings'],['arch','Archive']],
+const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['rep','Reports'],['set','Team & Settings'],['arch','Archive']],
              checker:[['check','My Checks'],['arch','Archive']]};
 function buildNav(){const nav=$('nav');nav.innerHTML='';
   VIEWS[ROLE].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>show(id);nav.appendChild(b);});
@@ -312,7 +331,8 @@ function buildNav(){const nav=$('nav');nav.innerHTML='';
   show(VIEWS[ROLE][0][0]);
 }
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));$('view-'+id).classList.remove('hidden');
-  [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));}
+  [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));
+  if(id==='check')loadMine(false);}
 
 /* ================= SETTINGS / USERS ================= */
 function renderUsers(){
@@ -492,13 +512,23 @@ async function writeHistory(map){const keys=Object.keys(map),SIZE=3000,chunks=[]
   const b=writeBatch(db);chunks.forEach((o,i)=>b.set(doc(db,'history','chunk_'+i),{data:o}));b.set(doc(db,'history','index'),{chunkCount:chunks.length,keys:keys.length,updatedAt:Date.now()});await b.commit();addWrites(chunks.length+1);}
 
 /* ================= CHECKER ================= */
-let myTasks=[],cur=0;
-$('loadMine').onclick=async()=>{$('cardPanel').innerHTML='<div class="empty">loading…</div>';const day=todayStr();
+let myTasks=[],cur=0,myLoaded=false;
+const myCacheKey=()=>`bv_my_${todayStr()}_${ME}`;
+function saveMyCache(){try{localStorage.setItem(myCacheKey(),JSON.stringify(myTasks));}catch(e){}}
+$('loadMine').onclick=()=>loadMine(true);   // explicit "Get latest" = server read
+async function loadMine(force){
+  const day=todayStr();
+  if(!force){
+    if(myLoaded){renderMine();return;}                       // already in memory this session — 0 reads
+    try{const c=localStorage.getItem(myCacheKey());if(c){myTasks=JSON.parse(c);myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;renderMine();note('from your device — press “Get latest” to sync');return;}}catch(e){}
+  }
+  $('cardPanel').innerHTML='<div class="empty">getting latest from server…</div>';
   try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('assignedTo','==',ME),where('archived','==',false)));addReads(qs.size||1);
     myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
-    cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;renderMine();
+    myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;saveMyCache();renderMine();note('synced ('+(qs.size)+' read)');
   }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
-};
+}
+function note(msg){const el=document.createElement('span');el.className='note';el.style.marginLeft='8px';el.textContent=msg;const h=$('myProgress');if(h){const b=h.querySelector('#listBtn');if(b)b.after(el);}}
 function statusClass(s){return s==='good'?'good':(s==='short'||s==='missing')?s:(s==='blocked'?'blocked':'');}
 function renderMine(){
   if(!myTasks.length){$('myProgress').innerHTML='';$('cardPanel').innerHTML='<div class="empty">Nothing assigned to \u201c'+esc(ME)+'\u201d today.</div>';return;}
@@ -580,7 +610,7 @@ async function commitCard(force){const t=myTasks[cur];const miss=$('cMiss')?.che
     if(prev!=='open'&&prev!==st)inc[prev]=increment(-1);inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
     await setDoc(doc(db,'stats',t.day+'__'+ME),inc,{merge:true});addWrites(1);
     Object.assign(t,{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});
-    advance();
+    saveMyCache();advance();
   }catch(e){alert('Save failed: '+(e.code||e.message));}}
 function openList(){const body=$('listBody');let prev=null,h='';
   myTasks.forEach((t,i)=>{if(t.bin!==prev){prev=t.bin;h+=`<div class="binhead" style="position:static;border-radius:6px;margin-top:6px">\ud83d\udccd ${esc(t.bin)}</div>`;}
@@ -613,11 +643,20 @@ async function loadDash(){const day=todayStr();
   }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 }
 let detailTab='totals';
-$('loadDetail').onclick=async()=>{const day=todayStr();$('detailMsg').textContent='reading today\'s cards…';
+const detailKey=()=>`bv_detail_${todayStr()}`;
+function saveDetailCache(){try{localStorage.setItem(detailKey(),JSON.stringify(detail));}catch(e){}}
+$('loadDetail').onclick=()=>loadDetail(false);
+$('refreshDetail').onclick=()=>loadDetail(true);
+async function loadDetail(force){const day=todayStr();
+  if(!force){
+    if(detail){renderDetailTabs();renderDetail();$('detailMsg').textContent='showing loaded data — press ↻ Refresh for the team\'s latest';return;}
+    try{const c=localStorage.getItem(detailKey());if(c){detail=JSON.parse(c);renderDetailTabs();renderDetail();$('detailMsg').textContent='from cache — press ↻ Refresh for the team\'s latest';return;}}catch(e){}
+  }
+  $('detailMsg').textContent='getting latest from server…';
   try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    detail=qs.docs.map(d=>({id:d.id,...d.data()}));$('detailMsg').textContent=`${detail.length} cards loaded (${qs.size} reads)`;renderDetailTabs();renderDetail();
+    detail=qs.docs.map(d=>({id:d.id,...d.data()}));saveDetailCache();$('detailMsg').textContent=`${detail.length} cards · synced (${qs.size} reads)`;renderDetailTabs();renderDetail();
   }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link)':'')+'</span>';}
-};
+}
 function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
   $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
   document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>{detailTab=b.dataset.t;renderDetailTabs();renderDetail();});}
@@ -747,9 +786,71 @@ $('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome
     inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
     await setDoc(doc(db,'stats',t.day+'__'+member),inc,{merge:true});addWrites(1);
     Object.assign(t,{status,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:member,editedBy:ME});
-    $('editModal').classList.add('hidden');renderDetail();
+    saveDetailCache();$('editModal').classList.add('hidden');renderDetail();
   }catch(e){$('emMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
+/* ================= REPORTS & KPIs ================= */
+function dstr(d){const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return dstr(d);}
+function pct(a,b){return b>0?Math.round(100*a/b):0;}
+if($('repFrom')){$('repFrom').value=daysAgo(6);$('repTo').value=todayStr();}
+let repData=null;
+$('repToday')&&($('repToday').onclick=()=>{$('repFrom').value=todayStr();$('repTo').value=todayStr();runReport();});
+$('repWeek')&&($('repWeek').onclick=()=>{$('repFrom').value=daysAgo(6);$('repTo').value=todayStr();runReport();});
+$('repMonth')&&($('repMonth').onclick=()=>{$('repFrom').value=daysAgo(29);$('repTo').value=todayStr();runReport();});
+$('repRun')&&($('repRun').onclick=runReport);
+async function runReport(){const from=$('repFrom').value,to=$('repTo').value;if(!from||!to){alert('Pick both dates.');return;}
+  $('repMsg').textContent='reading stats…';
+  try{const qs=await getDocs(query(collection(db,'stats'),where('day','>=',from),where('day','<=',to)));addReads(qs.size||1);
+    repData={from,to,stats:qs.docs.map(d=>d.data())};
+    $('repMsg').textContent=`${repData.stats.length} member-day records · ${qs.size} reads`;renderReport();
+  }catch(e){$('repMsg').innerHTML='<span style=\"color:#c62828\">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — open the console link once to create the index, then retry.':'')+'</span>';}
+}
+function aggReport(stats){const byDay={},byMember={},tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0};
+  stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;
+    const d=byDay[s.day]=byDay[s.day]||{day:s.day,checked:0,good:0,short:0,missing:0,blocked:0};
+    ['checked','good','short','missing','blocked'].forEach(k=>d[k]+=s[k]||0);
+    const m=byMember[s.member]=byMember[s.member]||{member:s.member,days:0,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0};
+    if((s.checked||0)>0)m.days++;['checked','good','short','missing','blocked','eaches','cases'].forEach(k=>m[k]+=s[k]||0);});
+  return {tot,days:Object.values(byDay).sort((a,b)=>a.day<b.day?-1:1),members:Object.values(byMember).sort((a,b)=>b.checked-a.checked)};
+}
+function renderReport(){if(!repData)return;const A=aggReport(repData.stats),t=A.tot,outs=t.short+t.missing;
+  $('repBody').innerHTML=`
+    <div class="note" style="margin:6px 2px 10px"><b>${repData.from}</b> &rarr; <b>${repData.to}</b> &middot; generated ${new Date().toLocaleString()}</div>
+    <div class="cards">
+      <div class="stat"><div class="n">${t.checked}</div><div class="l">Bins verified</div></div>
+      <div class="stat g"><div class="n">${t.good}</div><div class="l">Good (${pct(t.good,t.checked)}%)</div></div>
+      <div class="stat r"><div class="n">${outs}</div><div class="l">Out (short+missing)</div></div>
+      <div class="stat p"><div class="n">${t.blocked}</div><div class="l">Blocked</div></div>
+      <div class="stat"><div class="n">${t.eaches.toLocaleString()}</div><div class="l">Eaches counted</div></div>
+      <div class="stat"><div class="n">${t.cases.toLocaleString()}</div><div class="l">Cases counted</div></div></div>
+    <h3 style="margin:14px 0 6px;font-size:14px">Daily results</h3>
+    <div class="scroll" style="max-height:34vh"><table><thead><tr><th>Date</th><th>Verified</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th><th>Clean&nbsp;%</th></tr></thead><tbody>${
+      A.days.map(d=>`<tr><td>${esc(d.day)}</td><td>${d.checked}</td><td>${d.good}</td><td style=\"color:#c62828\">${d.short}</td><td style=\"color:#c62828\">${d.missing}</td><td style=\"color:#6b2fd0\">${d.blocked}</td><td>${pct(d.good,d.checked)}%</td></tr>`).join('')||'<tr><td colspan=\"7\" class=\"empty\">No data in range.</td></tr>'}</tbody></table></div>
+    <h3 style="margin:14px 0 6px;font-size:14px">Counter KPIs</h3>
+    <div class="scroll" style="max-height:40vh"><table><thead><tr><th>Counter</th><th>Days</th><th>Bins</th><th>Avg/day</th><th>Good</th><th>Outs</th><th>Blocked</th><th>Clean&nbsp;%</th><th>Eaches</th><th>Cases</th></tr></thead><tbody>${
+      A.members.map(m=>`<tr><td><b>${esc(m.member)}</b></td><td>${m.days}</td><td>${m.checked}</td><td>${m.days?Math.round(m.checked/m.days):0}</td><td>${m.good}</td><td style=\"color:#c62828\">${m.short+m.missing}</td><td style=\"color:#6b2fd0\">${m.blocked}</td><td>${pct(m.good,m.checked)}%</td><td>${(m.eaches||0).toLocaleString()}</td><td>${(m.cases||0).toLocaleString()}</td></tr>`).join('')||'<tr><td colspan=\"10\" class=\"empty\">No counters in range.</td></tr>'}</tbody></table></div>`;
+}
+$('repPrint')&&($('repPrint').onclick=()=>{
+  if(!repData){alert('Run a report first.');return;}
+  const A=aggReport(repData.stats),t=A.tot,outs=t.short+t.missing;
+  const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print the report.');return;}
+  const cards=[['Bins verified',t.checked],['Good',t.good+' ('+pct(t.good,t.checked)+'%)'],['Out (short+missing)',outs],['Blocked',t.blocked],['Eaches',t.eaches.toLocaleString()],['Cases',t.cases.toLocaleString()]]
+    .map(([l,v])=>`<div style=\"border:1px solid #888;border-radius:6px;padding:8px 12px\"><div style=\"font-size:18px;font-weight:800\">${v}</div><div style=\"font-size:10px;color:#555\">${l}</div></div>`).join('');
+  const daily=A.days.map(d=>`<tr><td>${esc(d.day)}</td><td>${d.checked}</td><td>${d.good}</td><td>${d.short}</td><td>${d.missing}</td><td>${d.blocked}</td><td>${pct(d.good,d.checked)}%</td></tr>`).join('');
+  const kpis=A.members.map(m=>`<tr><td>${esc(m.member)}</td><td>${m.days}</td><td>${m.checked}</td><td>${m.days?Math.round(m.checked/m.days):0}</td><td>${m.good}</td><td>${m.short+m.missing}</td><td>${m.blocked}</td><td>${pct(m.good,m.checked)}%</td><td>${(m.eaches||0).toLocaleString()}</td><td>${(m.cases||0).toLocaleString()}</td></tr>`).join('');
+  w.document.write(`<html><head><title>Verification Report ${repData.from} to ${repData.to}</title><style>
+    body{font-family:Arial;font-size:12px;margin:16px;color:#111}h2{margin:0}h3{margin:14px 0 4px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 7px;text-align:left}th{background:#e8eef6;font-size:11px}
+    @media print{.np{display:none}}</style></head><body>
+    <h2>Verification &amp; KPI Report</h2><div style=\"color:#555;margin-bottom:8px\">${repData.from} &rarr; ${repData.to} &middot; generated ${new Date().toLocaleString()}</div>
+    <div style=\"display:flex;gap:10px;flex-wrap:wrap;margin:8px 0\">${cards}</div>
+    <h3>Daily results</h3><table><thead><tr><th>Date</th><th>Verified</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th><th>Clean %</th></tr></thead><tbody>${daily}</tbody></table>
+    <h3>Counter KPIs</h3><table><thead><tr><th>Counter</th><th>Days</th><th>Bins</th><th>Avg/day</th><th>Good</th><th>Outs</th><th>Blocked</th><th>Clean %</th><th>Eaches</th><th>Cases</th></tr></thead><tbody>${kpis}</tbody></table>
+    <button class=\"np\" onclick=\"window.print()\" style=\"margin-top:12px;padding:9px 16px;font-weight:700\">Print</button></body></html>`);
+  w.document.close();
+});
+/* ================= ARCHIVE SEARCH ================= */
 $('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();if(!val){alert('Enter a value.');return;}$('archMsg').textContent='searching…';
   try{const qs=await getDocs(query(collection(db,'tasks'),where(field,'==',val)));addReads(qs.size||1);
     const rows=qs.docs.map(d=>d.data()).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
