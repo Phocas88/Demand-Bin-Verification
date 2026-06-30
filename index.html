@@ -73,7 +73,7 @@
 </head>
 <body>
 <header>
-  <h1>NH Demand Bin Verification</h1><div class="grow"></div>
+  <h1>Demand Bin Verification</h1><div class="grow"></div>
   <div class="meta"><span id="whoami"></span>
     <span class="reads" title="Approx Firestore reads this session">reads <b id="reads">0</b></span>
     <span class="reads" title="Approx Firestore writes this session">writes <b id="writes">0</b></span>
@@ -103,6 +103,7 @@
         <div class="drop" id="dropBin"><h3>Bin Report</h3><p>today's NH export</p><div class="fn" id="fnBin"></div><input type="file" id="fileBin" accept=".xlsx,.xls,.csv" class="hidden"></div>
         <div class="drop" id="dropDem"><h3>Demand Report (CSV)</h3><p>exported from your demand system</p><div class="fn" id="fnDem"></div><input type="file" id="fileDem" accept=".xlsx,.xls,.csv" class="hidden"></div>
       </div>
+      <div class="row-f"><label>Division</label><select class="in" id="divSel"></select></div>
       <div class="row-f">
         <label>Demand window</label>
         <select class="in" id="windowSel"><option>7</option><option>14</option><option selected>30</option><option>60</option><option>70</option><option>80</option><option>90</option></select> day
@@ -162,10 +163,11 @@
       <div class="row-f"><button class="ghost act" id="addUser">+ Add person</button></div>
     </div>
     <div class="panel">
-      <h2>Settings</h2>
-      <div class="row-f"><label>Apprise location prefix</label><input class="in" id="setPrefix" value="NH" style="width:90px">
+      <h2>Divisions &amp; settings</h2>
+      <p class="note">Each division has its own Apprise prefix and its own missing / not-available bins — used to flag items for trace and to stamp the Apprise export.</p>
+      <div class="scroll" style="max-height:34vh"><table class="assignT"><thead><tr><th>Prefix</th><th>Name</th><th>Missing / special bins</th><th></th></tr></thead><tbody id="divBody"></tbody></table></div>
+      <div class="row-f"><button class="ghost act" id="addDiv">+ Add division</button>
         <label>Re-check after</label><input class="in" type="number" id="setWindow" value="7" min="1" style="width:64px"> days</div>
-      <div class="row-f"><label>Special / trace-only bins</label><input class="in" id="setSpecial" value="NHMissing, Replenshorts, NHDM, NHInvest" style="flex:1;min-width:240px"></div>
       <div class="row-f"><button class="act" id="saveSettings">Save settings &amp; team</button><span id="setMsg" class="note"></span></div>
     </div>
   </section>
@@ -181,6 +183,20 @@
       <div class="scroll" style="max-height:60vh"><table><thead><tr><th>Day</th><th>Bin</th><th>Code</th><th>Demand</th><th>Counted</th><th>Result</th><th>By</th><th>When</th><th>Note</th></tr></thead><tbody id="archBody"></tbody></table></div>
     </div>
   </section>
+</div>
+
+<!-- MANAGER EDIT MODAL -->
+<div id="editModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center;display:flex">
+  <div class="panel" style="max-width:430px;width:92%;margin:0">
+    <h2 id="emTitle">Edit line</h2>
+    <div class="note" id="emSub"></div>
+    <div class="row-f"><label>Count each</label><input class="in" id="emEach" type="number" min="0" style="width:90px">
+      <span id="emCaseWrap" style="display:flex;gap:8px;align-items:center"><label>Cases</label><input class="in" id="emCase" type="number" min="0" style="width:90px"> <span id="emCaseLbl" class="ea"></span></span></div>
+    <div class="row-f"><label>Outcome</label>
+      <select class="in" id="emOutcome"><option value="auto">Auto (good / short by count)</option><option value="missing">Missing</option><option value="blocked">Blocked</option></select></div>
+    <div class="row-f"><label>Note</label><input class="in" id="emNote" style="flex:1;min-width:170px"></div>
+    <div class="row-f"><button class="act" id="emSave">Save</button><button class="ghost act" id="emCancel">Cancel</button><span id="emMsg" class="note"></span></div>
+  </div>
 </div>
 
 <script type="module">
@@ -218,7 +234,15 @@ function firstSheet(wb,test){for(const n of wb.SheetNames){const j=XLSX.utils.sh
 /* ---------- session + config ---------- */
 let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null;
 const BOOTSTRAP='1988';
-function defaultConfig(){return {users:[],prefix:'NH',special:'NHMissing, Replenshorts, NHDM, NHInvest',recheckDays:7};}
+function defaultConfig(){return {users:[],recheckDays:7,divisions:[
+  {code:'GT',name:'TAG',special:'GTMissing, Replenshorts, GTDM, GTInvest'},
+  {code:'NH',name:'NAPA',special:'NHMissing, Replenshorts, NHDM, NHInvest'},
+  {code:'VP',name:'VIP',special:'VPMissing, Replenshorts, VPDM, VPInvest'},
+  {code:'FS',name:'Foreside',special:'FSMissing, Replenshorts, FSDM, FSInvest'},
+  {code:'EE',name:'Ever Ellis',special:'EEMissing, Replenshorts, EEDM, EEInvest'},
+  {code:'BC',name:'Beachcombers',special:'BCMissing, Replenshorts, BCDM, BCInvest'},
+  {code:'TP',name:'Transpac',special:'TPMissing, Replenshorts, TPDM, TPInvest'}
+]};}
 
 signInAnonymously(auth).then(async()=>{
   $('connState').textContent='connected ✓';$('connState').className='ok';
@@ -240,6 +264,12 @@ function renderPad(){
   });
 }
 renderPad();
+document.addEventListener('keydown',e=>{
+  if($('gate').classList.contains('hidden'))return; // only on the login screen
+  if(e.key>='0'&&e.key<='9'){if(pinBuf.length<8){pinBuf+=e.key;$('pindisp').textContent='•'.repeat(pinBuf.length);}}
+  else if(e.key==='Backspace'){pinBuf=pinBuf.slice(0,-1);$('pindisp').textContent='•'.repeat(pinBuf.length);e.preventDefault();}
+  else if(e.key==='Enter'){e.preventDefault();submitPin();}
+});
 function submitPin(){
   if(!CONFIG){$('gateErr').innerHTML='<div class="err">Still connecting — try again in a second.</div>';return;}
   const pin=pinBuf;pinBuf='';$('pindisp').textContent='';
@@ -259,7 +289,7 @@ const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['set','Te
              checker:[['check','My Checks'],['arch','Archive']]};
 function buildNav(){const nav=$('nav');nav.innerHTML='';
   VIEWS[ROLE].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>show(id);nav.appendChild(b);});
-  if(ROLE==='manager')renderUsers();
+  if(ROLE==='manager'){renderUsers();fillDivisions();}
   show(VIEWS[ROLE][0][0]);
 }
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));$('view-'+id).classList.remove('hidden');
@@ -267,7 +297,7 @@ function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add(
 
 /* ================= SETTINGS / USERS ================= */
 function renderUsers(){
-  $('setPrefix').value=CONFIG.prefix||'NH';$('setWindow').value=CONFIG.recheckDays||7;$('setSpecial').value=CONFIG.special||'';
+  $('setWindow').value=CONFIG.recheckDays||7;renderDivisions();
   const us=CONFIG.users||[];
   $('userBody').innerHTML=us.map((u,i)=>`<tr>
     <td><input class="in un" data-i="${i}" value="${esc(u.name)}" style="width:130px"></td>
@@ -283,12 +313,25 @@ function renderUsers(){
   document.querySelectorAll('.urm').forEach(x=>x.onclick=e=>{CONFIG.users.splice(+e.target.dataset.i,1);renderUsers();});
 }
 $('addUser').onclick=()=>{CONFIG.users=CONFIG.users||[];CONFIG.users.push({name:'',pin:'',role:'checker',active:true});renderUsers();};
+function renderDivisions(){const ds=CONFIG.divisions||[];
+  $('divBody').innerHTML=ds.map((d,i)=>`<tr>
+    <td><input class="in dc" data-i="${i}" value="${esc(d.code)}" style="width:64px"></td>
+    <td><input class="in dn" data-i="${i}" value="${esc(d.name)}" style="width:120px"></td>
+    <td><input class="in dsp" data-i="${i}" value="${esc(d.special)}" style="width:100%;min-width:220px"></td>
+    <td><button class="ghost act drm" data-i="${i}" style="padding:5px 9px">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No divisions — add one.</td></tr>';
+  document.querySelectorAll('.dc').forEach(x=>x.onchange=e=>CONFIG.divisions[+e.target.dataset.i].code=e.target.value.trim());
+  document.querySelectorAll('.dn').forEach(x=>x.onchange=e=>CONFIG.divisions[+e.target.dataset.i].name=e.target.value.trim());
+  document.querySelectorAll('.dsp').forEach(x=>x.onchange=e=>CONFIG.divisions[+e.target.dataset.i].special=e.target.value);
+  document.querySelectorAll('.drm').forEach(x=>x.onclick=e=>{CONFIG.divisions.splice(+e.target.dataset.i,1);renderDivisions();});
+}
+$('addDiv').onclick=()=>{CONFIG.divisions=CONFIG.divisions||[];CONFIG.divisions.push({code:'',name:'',special:''});renderDivisions();};
+function fillDivisions(){const sel=$('divSel');if(!sel)return;sel.innerHTML=(CONFIG.divisions||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');}
 $('saveSettings').onclick=async()=>{
-  CONFIG.prefix=$('setPrefix').value.trim()||'NH';CONFIG.recheckDays=Number($('setWindow').value)||7;CONFIG.special=$('setSpecial').value;
+  CONFIG.recheckDays=Number($('setWindow').value)||7;CONFIG.divisions=(CONFIG.divisions||[]).filter(d=>d.code);
   const pins=(CONFIG.users||[]).filter(u=>u.name&&u.pin).map(u=>u.pin);
   if(new Set(pins).size!==pins.length){$('setMsg').innerHTML='<span style="color:#c62828">Duplicate PINs — make them unique.</span>';return;}
   CONFIG.users=(CONFIG.users||[]).filter(u=>u.name&&u.pin);
-  try{await setDoc(doc(db,'meta','config'),{...CONFIG,updatedAt:Date.now()});addWrites(1);$('setMsg').innerHTML='<span class="saved">Saved.</span>';renderUsers();}
+  try{await setDoc(doc(db,'meta','config'),{...CONFIG,updatedAt:Date.now()});addWrites(1);$('setMsg').innerHTML='<span class="saved">Saved.</span>';renderUsers();fillDivisions();}
   catch(e){$('setMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
 
@@ -315,10 +358,11 @@ $('btnCompute').onclick=async()=>{
   $('computeMsg').textContent='reading skip-memory…';
   let history={};try{history=await readHistory();}catch(e){$('computeMsg').innerHTML='<span style="color:#c62828">memory read failed: '+esc(e.code||e.message)+'</span>';return;}
   const windowDays=Number(CONFIG.recheckDays)||7;
-  const specials=new Set((CONFIG.special||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
+  const div=(CONFIG.divisions||[]).find(d=>d.code===$('divSel').value)||{code:$('divSel').value||'NH',special:''};
+  const specials=new Set((div.special||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
   const demColName=$('demCol').value;
-  computed=computeList(binRows,demRows,history,windowDays,specials,demColName);
-  computed.window=$('windowSel').value;
+  computed=computeList(binRows,demRows,history,windowDays,specials,demColName,div.code);
+  computed.window=$('windowSel').value;computed.division=div.code;
   $('computeMsg').textContent=`${computed.active.length} cards to check · ${computed.skipped} skipped · ${computed.trace.length} trace · memory ${Object.keys(history).length}`;
   $('computeOut').innerHTML=`<div class="cards">
     <div class="stat"><div class="n">${computed.active.length}</div><div class="l">Cards to check</div></div>
@@ -327,7 +371,7 @@ $('btnCompute').onclick=async()=>{
   renderZones();$('assignPanel').classList.remove('hidden');
 };
 
-function computeList(binRows,demRows,history,windowDays,specials,demColName){
+function computeList(binRows,demRows,history,windowDays,specials,demColName,division){
   const now=new Date();
   const bc={bin:col(binRows[0],['Bin Name']),code:col(binRows[0],['Product Code']),oh:col(binRows[0],['Qty On Hand']),um:col(binRows[0],['U/M','UM'])};
   const dCode=col(demRows[0],['Product Code']),dName=col(demRows[0],['Product Name']);
@@ -348,13 +392,13 @@ function computeList(binRows,demRows,history,windowDays,specials,demColName){
     const realBins=Object.values(bins).filter(b=>!isSp(b.bin));
     if(!realBins.length){const sl=Object.keys(bins).sort(natcmp).join(', ');
       trace.push({code,name:nameMap[code],demand:demMap[code],loc:sl,reason:'Only in special bins'});return;}
-    realBins.forEach(b=>{const key=b.bin+'|'+code;const sysTotal=b.systemEach+b.systemCase*b.pack;const h=history[key];let st;
+    realBins.forEach(b=>{const key=b.bin+'|'+code;const sysTotal=b.systemEach+b.systemCase*b.pack;const h=history[division+'|'+key];let st;
       if(!h)st={code:'NEW',lbl:'NEW',cls:'b-new'};
       else if(h.open)st={code:'OPEN',lbl:'OPEN ADJ',cls:'b-open'};
       else if(Number(sysTotal)!==Number(h.sq))st={code:'QTY',lbl:'QTY MOVED',cls:'b-qty'};
       else if(h.at&&((now-new Date(h.at))/864e5)>windowDays)st={code:'STALE',lbl:'STALE',cls:'b-stale'};
       else{skipped++;return;}
-      active.push({key,bin:b.bin,code,name:nameMap[code],pack:b.pack,systemEach:b.systemEach,systemCase:b.systemCase,
+      active.push({key,division,bin:b.bin,code,name:nameMap[code],pack:b.pack,systemEach:b.systemEach,systemCase:b.systemCase,
         systemTotal:sysTotal,demand:demMap[code],zone:zoneOf(b.bin),level:levelOf(b.bin),status:st});});
   });
   active.sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
@@ -407,15 +451,15 @@ $('btnPublish').onclick=async()=>{
   try{
     const day=computed.day,tasks=computed.active;let w=0;
     for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);
-      tasks.slice(i,i+400).forEach(t=>b.set(doc(db,'tasks',day+'__'+t.key),{
-        day,bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),
+      tasks.slice(i,i+400).forEach(t=>b.set(doc(db,'tasks',day+'__'+computed.division+'__'+t.key),{
+        day,division:computed.division,bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),
         systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:computed.window,
         assignedTo:t.assignedTo||'',statusFlag:t.status.lbl,status:'open',
         countedEach:0,countedCase:0,countedTotal:0,checkedBy:'',checkedAt:0,note:'',archived:false}));
       await b.commit();addWrites(Math.min(400,tasks.length-i));w+=Math.min(400,tasks.length-i);}
     const sb=writeBatch(db);const per={};tasks.forEach(t=>{if(t.assignedTo)per[t.assignedTo]=(per[t.assignedTo]||0)+1;});
     Object.entries(per).forEach(([m,n])=>sb.set(doc(db,'stats',day+'__'+m),{day,member:m,assigned:n,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0,updatedAt:Date.now()}));
-    sb.set(doc(db,'meta','current'),{day,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});
+    sb.set(doc(db,'meta','current'),{day,division:computed.division,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});
     await sb.commit();addWrites(Object.keys(per).length+1);
     $('publishMsg').innerHTML=`<span class="saved">Published ${w} cards to ${Object.keys(per).length} members for the ${computed.window}-day window.</span>`;
   }catch(e){$('publishMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
@@ -518,13 +562,13 @@ async function loadDash(){const day=todayStr();
 let detailTab='totals';
 $('loadDetail').onclick=async()=>{const day=todayStr();$('detailMsg').textContent='reading today\'s cards…';
   try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    detail=qs.docs.map(d=>d.data());$('detailMsg').textContent=`${detail.length} cards loaded (${qs.size} reads)`;renderDetailTabs();renderDetail();
+    detail=qs.docs.map(d=>({id:d.id,...d.data()}));$('detailMsg').textContent=`${detail.length} cards loaded (${qs.size} reads)`;renderDetailTabs();renderDetail();
   }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link)':'')+'</span>';}
 };
 function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
   $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
   document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>{detailTab=b.dataset.t;renderDetailTabs();renderDetail();});}
-function rollup(){const byCode={};(detail||[]).forEach(t=>{const o=byCode[t.code]=byCode[t.code]||{code:t.code,name:t.name,demand:t.demand||0,sys:0,located:0,checked:0,bins:[]};
+function rollup(){const byCode={};(detail||[]).forEach(t=>{const gk=(t.division||'')+'|'+t.code;const o=byCode[gk]=byCode[gk]||{division:t.division||'',code:t.code,name:t.name,demand:t.demand||0,sys:0,located:0,checked:0,bins:[]};
   o.sys+=t.systemTotal||0;o.bins.push(t);if(t.status!=='open'){o.checked++;}o.located+=(t.status==='open'?0:(t.countedTotal||0));});return byCode;}
 function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<div class="empty">Load bin detail first.</div>';return;}
   if(detailTab==='totals'){const r=rollup();const rows=Object.values(r).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
@@ -532,27 +576,28 @@ function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<d
     host.innerHTML=`<div class="note">Located vs demand for the uploaded window. A product is <b>covered</b> once the team has confirmed enough across all its bins. ${covered}/${rows.length} products covered.</div>
     <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Apprise sys</th><th>Located</th><th>Bins checked</th><th>Status</th></tr></thead><tbody>${
       rows.map(o=>{const cov=o.demand>0&&o.located>=o.demand;const part=o.checked<o.bins.length;
-        return `<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.sys)}</td>
+        return `<tr><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.sys)}</td>
         <td style="font-weight:800;color:${cov?'#2e7d32':'#c62828'}">${fmt(o.located)}</td><td>${o.checked}/${o.bins.length}</td>
         <td>${cov?'<span class="badge b-good">COVERED</span>':(part?'<span class="badge b-stale">IN PROGRESS</span>':'<span class="badge b-missing">SHORT '+fmt(o.demand-o.located)+'</span>')}</td></tr>`;}).join('')}</tbody></table></div>`;
-  }else if(detailTab==='bins'){const d=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
-    host.innerHTML=`<div class="scroll"><table><thead><tr><th>Bin</th><th>Code</th><th>Apprise</th><th>Counted</th><th>Status</th><th>By</th></tr></thead><tbody>${
-      d.map(t=>{const isC=t.pack>1||t.systemCase>0;return `<tr><td>${esc(t.bin)}</td><td><b>${esc(t.code)}</b></td>
+  }else if(detailTab==='bins'){const d=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));window._grid=d;
+    host.innerHTML=`<div class="note">Click <b>Edit</b> on any line to correct a count or status.</div><div class="scroll"><table><thead><tr><th>Bin</th><th>Div</th><th>Code</th><th>Apprise</th><th>Counted</th><th>Status</th><th>By</th><th></th></tr></thead><tbody>${
+      d.map((t,i)=>{const isC=t.pack>1||t.systemCase>0;return `<tr><td>${esc(t.bin)}</td><td>${esc(t.division||'')}</td><td><b>${esc(t.code)}</b></td>
       <td>${t.systemEach} ea${isC?' | '+t.systemCase+' c'+t.pack:''}</td>
       <td>${t.status==='open'?'—':(t.status==='missing'?'<b style="color:#c62828">missing</b>':t.status==='blocked'?'<b style="color:#6b2fd0">blocked</b>':(t.countedEach||0)+' ea'+(isC?' | '+(t.countedCase||0)+' c'+t.pack:''))}</td>
-      <td><span class="badge b-${t.status}">${esc(t.status)}</span></td><td>${esc(t.checkedBy||'')}</td></tr>`;}).join('')}</tbody></table></div>`;
+      <td><span class="badge b-${t.status}">${esc(t.status)}</span>${t.editedBy?' <span class="note">✎</span>':''}</td><td>${esc(t.checkedBy||'')}</td>
+      <td><button class="ghost act" style="padding:4px 9px" onclick="window.mgrEdit(${i})">Edit</button></td></tr>`;}).join('')}</tbody></table></div>`;
   }else if(detailTab==='cons'){const r=rollup();const multi=Object.values(r).filter(o=>o.bins.length>1)
       .map(o=>({...o,partials:o.bins.filter(b=>(b.systemTotal||0)>0&&(b.systemTotal||0)<(b.pack||1)*2).length}))
       .sort((a,b)=>b.bins.length-a.bins.length||b.partials-a.partials);
     host.innerHTML=`<div class="note">Products spread across multiple bins — candidates to consolidate into fewer locations. “Partial bins” are locations holding less than ~2 cases (loose stock worth combining). Capacity isn't in the file, so treat as a shortlist.</div>
     <div class="scroll"><table><thead><tr><th>Product</th><th>Bins</th><th>Partial bins</th><th>Total located/sys</th><th>Where</th></tr></thead><tbody>${
-      multi.map(o=>`<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td><b>${o.bins.length}</b></td><td>${o.partials||''}</td>
+      multi.map(o=>`<tr><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td><b>${o.bins.length}</b></td><td>${o.partials||''}</td>
       <td>${fmt(o.located)} / ${fmt(o.sys)}</td><td>${o.bins.map(b=>'<span class="pill">'+esc(b.bin)+': '+(b.systemTotal||0)+'</span>').join(' ')}</td></tr>`).join('')
       ||'<tr><td colspan="5" class="empty">No multi-bin products.</td></tr>'}</tbody></table></div>`;
   }else{const r=rollup();const outs=Object.values(r).filter(o=>o.checked>0&&o.located<o.demand).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
     host.innerHTML=`<div class="note">Products where confirmed located is below demand — launch bin traces.</div>
     <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Located</th><th>Short by</th><th>Bins out</th></tr></thead><tbody>${
-      outs.map(o=>`<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td>
+      outs.map(o=>`<tr><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td>
       <td style="color:#c62828;font-weight:800">${fmt(o.located)}</td><td>${fmt(o.demand-o.located)}</td>
       <td>${o.bins.filter(b=>['short','missing','blocked'].includes(b.status)).map(b=>'<span class="pill">'+esc(b.bin)+' ('+b.status+')</span>').join(' ')}</td></tr>`).join('')
       ||'<tr><td colspan="5" class="empty">No outs. 🎉</td></tr>'}</tbody></table></div>`;
@@ -561,12 +606,13 @@ function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<d
 /* Apprise export — per-UOM negative/positive adjustments for incorrect bins */
 $('appriseBtn').onclick=()=>{
   if(!detail){alert('Press “Load bin detail” first.');return;}
-  const prefix=(CONFIG.prefix||'NH');
+  const fallback=((CONFIG.divisions||[])[0]||{}).code||'NH';
   const head=['Product Code','Location Prefix','Bin','','','UOM','Quantity','Adjust Code','Shorted',''];
   const rows=[head];
   detail.filter(t=>t.status==='good'||t.status==='short'||t.status==='missing').forEach(t=>{
     const eachAdj=(t.countedEach||0)-(t.systemEach||0);
     const caseAdj=(t.countedCase||0)-(t.systemCase||0);
+    const prefix=t.division||fallback;
     if(eachAdj!==0)rows.push([t.code,prefix,t.bin,'','','EA',eachAdj,'GenQtyAdj','',  '']);
     if(caseAdj!==0)rows.push([t.code,prefix,t.bin,'','','Case'+t.pack,caseAdj,'GenQtyAdj','','']);
   });
@@ -581,14 +627,41 @@ $('appriseBtn').onclick=()=>{
 $('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory and archive the day?'))return;$('archiveMsg').textContent='reading…';const day=todayStr();
   try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
     const tasks=qs.docs.map(d=>({id:d.id,...d.data()}));const history=await readHistory();
-    tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;history[t.bin+'|'+t.code]={sq:t.systemTotal,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
+    tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;history[(t.division||'')+'|'+t.bin+'|'+t.code]={sq:t.systemTotal,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
     await writeHistory(history);
     for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);tasks.slice(i,i+400).forEach(t=>b.update(doc(db,'tasks',t.id),{archived:true}));await b.commit();addWrites(Math.min(400,tasks.length-i));}
     $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards. Memory now '+Object.keys(history).length+' keys.</span>';
   }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
 
-/* ================= ARCHIVE SEARCH ================= */
+/* manager edit of any line */
+let emIdx=-1;
+window.mgrEdit=function(i){emIdx=i;const t=window._grid[i];const isC=t.pack>1||t.systemCase>0;
+  $('emTitle').textContent='Edit · '+t.bin+' · '+t.code;
+  $('emSub').textContent=`Apprise ${t.systemEach} each${isC?' | '+t.systemCase+' Case'+t.pack:''} · demand ${t.demand} · checked by ${t.checkedBy||'—'}`;
+  $('emEach').value=t.countedEach||0;$('emCaseWrap').style.display=isC?'flex':'none';$('emCase').value=t.countedCase||0;$('emCaseLbl').textContent='Case'+t.pack;
+  $('emOutcome').value=t.status==='missing'?'missing':(t.status==='blocked'?'blocked':'auto');
+  $('emNote').value=t.note||'';$('emMsg').textContent='';$('editModal').classList.remove('hidden');
+};
+$('emCancel').onclick=()=>$('editModal').classList.add('hidden');
+$('editModal').addEventListener('click',e=>{if(e.target===$('editModal'))$('editModal').classList.add('hidden');});
+$('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome').value;
+  const zero=(out==='missing'||out==='blocked');
+  const eaches=zero?0:(Number($('emEach').value)||0);
+  const cases=zero?0:((t.pack>1||t.systemCase>0)?(Number($('emCase').value)||0):0);
+  const total=zero?0:cases*t.pack+eaches;
+  const status=out==='missing'?'missing':out==='blocked'?'blocked':(total<t.demand?'short':'good');
+  const note=$('emNote').value;const member=t.checkedBy||t.assignedTo||ME;const prev=t.status;
+  $('emMsg').textContent='saving…';
+  try{
+    await updateDoc(doc(db,'tasks',t.id),{status,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:member,checkedAt:t.checkedAt||Date.now(),editedBy:ME,editedAt:Date.now()});addWrites(1);
+    const inc={updatedAt:Date.now()};if(prev==='open')inc.checked=increment(1);inc[status]=increment(1);if(prev!=='open'&&prev!==status)inc[prev]=increment(-1);
+    inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
+    await setDoc(doc(db,'stats',t.day+'__'+member),inc,{merge:true});addWrites(1);
+    Object.assign(t,{status,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:member,editedBy:ME});
+    $('editModal').classList.add('hidden');renderDetail();
+  }catch(e){$('emMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+};
 $('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();if(!val){alert('Enter a value.');return;}$('archMsg').textContent='searching…';
   try{const qs=await getDocs(query(collection(db,'tasks'),where(field,'==',val)));addReads(qs.size||1);
     const rows=qs.docs.map(d=>d.data()).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
