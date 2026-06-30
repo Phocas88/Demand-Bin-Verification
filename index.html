@@ -192,7 +192,7 @@
     <h2 id="emTitle">Edit line</h2>
     <div class="note" id="emSub"></div>
     <div class="row-f"><label>Count each</label><input class="in" id="emEach" type="number" min="0" style="width:90px">
-      <span id="emCaseWrap" style="display:flex;gap:8px;align-items:center"><label>Cases</label><input class="in" id="emCase" type="number" min="0" style="width:90px"> <span id="emCaseLbl" class="ea"></span></span></div>
+      <span id="emCaseWrap" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label>Cases</label><input class="in" id="emCase" type="number" min="0" style="width:80px"> <span id="emCaseLbl" class="ea"></span><span id="emPerWrap" style="display:none">× <input class="in" id="emPer" type="number" min="0" style="width:78px" placeholder="per case"> <span class="ea">per case</span></span></span></div>
     <div class="row-f"><label>Outcome</label>
       <select class="in" id="emOutcome"><option value="auto">Auto (good / short by count)</option><option value="missing">Missing</option><option value="blocked">Blocked</option></select></div>
     <div class="row-f"><label>Note</label><input class="in" id="emNote" style="flex:1;min-width:170px"></div>
@@ -233,7 +233,7 @@ function readFile(file){return new Promise(res=>{const r=new FileReader();r.onlo
 function firstSheet(wb,test){for(const n of wb.SheetNames){const j=XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:''});if(j.length&&(!test||test(j[0])))return j;}return null;}
 
 /* ---------- session + config ---------- */
-let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null;
+let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null,PACKS={};
 const BOOTSTRAP='1988';
 function defaultConfig(){return {users:[],recheckDays:7,divisions:[
   {code:'GT',name:'TAG',special:'GTMissing, Replenshorts, GTDM, GTInvest'},
@@ -249,8 +249,10 @@ signInAnonymously(auth).then(async()=>{
   $('connState').textContent='connected ✓';$('connState').className='ok';
   try{const c=await getDoc(doc(db,'meta','config'));addReads(1);CONFIG=c.exists()?{...defaultConfig(),...c.data()}:defaultConfig();}
   catch(e){CONFIG=defaultConfig();}
+  try{const pk=await getDoc(doc(db,'meta','packs'));addReads(1);if(pk.exists())PACKS=pk.data().codes||{};}catch(e){}
 }).catch(e=>{$('connState').className='err';$('connState').innerHTML='Connect failed — enable <b>Authentication → Anonymous</b> and <b>Firestore</b> in Firebase, then reload. ('+esc(e.code||e.message)+')';});
 
+async function writePack(code,pack){if(!(pack>1))return;PACKS[code]=pack;try{await setDoc(doc(db,'meta','packs'),{codes:{[code]:pack},updatedAt:Date.now()},{merge:true});addWrites(1);}catch(e){}}
 /* ---------- PIN pad ---------- */
 let pinBuf='';
 function renderPad(){
@@ -399,7 +401,7 @@ function computeList(binRows,demRows,history,windowDays,specials,demColName,divi
       else if(Number(sysTotal)!==Number(h.sq))st={code:'QTY',lbl:'QTY MOVED',cls:'b-qty'};
       else if(h.at&&((now-new Date(h.at))/864e5)>windowDays)st={code:'STALE',lbl:'STALE',cls:'b-stale'};
       else{skipped++;return;}
-      active.push({key,division,bin:b.bin,code,name:nameMap[code],pack:b.pack,systemEach:b.systemEach,systemCase:b.systemCase,
+      active.push({key,division,bin:b.bin,code,name:nameMap[code],pack:(b.pack>1?b.pack:(PACKS[code]>1?PACKS[code]:b.pack)),systemEach:b.systemEach,systemCase:b.systemCase,
         systemTotal:sysTotal,demand:demMap[code],zone:zoneOf(b.bin),level:levelOf(b.bin),status:st});});
   });
   active.sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
@@ -490,16 +492,17 @@ function renderMine(){
   let html='',prev=null;
   myTasks.forEach((t,i)=>{
     if(t.bin!==prev){prev=t.bin;html+=`<div class="binhead">📍 ${esc(t.bin)}</div>`;}
-    const isCase=t.pack>1||t.systemCase>0;
+    const known=t.pack>1;
     html+=`<div class="line ${statusClass(t.status)}" id="ln_${i}">
       <div class="info">
         <div class="nm"><span class="badge ${'b-'+t.status}">${t.status==='open'?(t.statusFlag||'CHECK'):t.status.toUpperCase()}</span>${esc(t.code)} <b>[${esc(t.name)}]</b></div>
         <div class="sub" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap">
-          <span><b>Apprise:</b> ${t.systemEach} <span class="ea">each</span>${isCase?` &nbsp;|&nbsp; ${t.systemCase} <span class="ea">Case${t.pack}</span>`:''}</span>
+          <span><b>Apprise:</b> ${t.systemEach} <span class="ea">each</span>${t.systemCase>0?` &nbsp;|&nbsp; ${t.systemCase} <span class="ea">Case${t.pack}</span>`:''}</span>
           <span class="req">Demand: ${fmt(t.demand)}</span></div>
         <div class="inputs"><span><b>Count:</b></span>
           <input class="qin" id="e_${i}" type="number" inputmode="numeric" min="0" value="${t.countedEach||''}" oninput="window.recalc(${i})"> <span class="ea">each</span>
-          ${isCase?` &nbsp;|&nbsp; <input class="qin" id="c_${i}" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" oninput="window.recalc(${i})"> <span class="ea">Case${t.pack}</span>`:''}
+          &nbsp;|&nbsp; <input class="qin" id="c_${i}" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" oninput="window.recalc(${i})">
+          ${known?`<span class="ea">Case${t.pack}</span>`:`× <input class="qin" id="pc_${i}" type="number" inputmode="numeric" min="0" placeholder="per case" value="${PACKS[t.code]>1?PACKS[t.code]:''}" oninput="window.recalc(${i})"> <span class="ea" title="how many eaches in one case — read it off the box; we'll remember it">per case</span>`}
           <label class="miss" style="margin-left:auto"><span>MISSING</span><input type="checkbox" id="m_${i}" onchange="window.recalc(${i})" ${t.status==='missing'?'checked':''}></label></div>
         <div class="inputs"><span><b>Notes:</b></span><input class="in" id="n_${i}" value="${esc(t.note||'')}" style="flex:1;min-width:160px"></div>
       </div>
@@ -512,24 +515,28 @@ function renderMine(){
   });
   $('myList').innerHTML=html;myTasks.forEach((t,i)=>{window.recalc(i);if(t.status!=='open')lockLine(i,true);});
 }
-function lockLine(i,l){['e_'+i,'c_'+i,'m_'+i,'n_'+i].forEach(id=>{const el=$(id);if(el)el.disabled=l;});}
+function lockLine(i,l){['e_'+i,'c_'+i,'pc_'+i,'m_'+i,'n_'+i].forEach(id=>{const el=$(id);if(el)el.disabled=l;});}
 window.editOne=i=>{lockLine(i,false);$('e_'+i)&&$('e_'+i).focus();};
 window.recalc=function(i){const t=myTasks[i];const miss=$('m_'+i).checked;
-  const cases=(t.pack>1||t.systemCase>0)?(Number($('c_'+i)?.value)||0):0;const eaches=Number($('e_'+i)?.value)||0;
-  const total=miss?0:cases*t.pack+eaches;const st=miss?'missing':(total<t.demand?'short':'good');
-  $('t_'+i).textContent=miss?'MISSING':total;
+  const pack=t.pack>1?t.pack:(Number($('pc_'+i)?.value)||0);
+  const cases=Number($('c_'+i)?.value)||0;const eaches=Number($('e_'+i)?.value)||0;
+  const total=miss?0:eaches+cases*pack;const st=miss?'missing':(total<t.demand?'short':'good');
+  $('t_'+i).textContent=miss?'MISSING':((cases>0&&pack<1)?'⚠ per case?':total);
   if(t.status!=='blocked'){const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(st);}
-  if($('c_'+i))$('c_'+i).disabled=miss;$('e_'+i).disabled=miss;t._pending={cases,eaches,total};};
+  ['c_'+i,'e_'+i,'pc_'+i].forEach(id=>{if($(id))$(id).disabled=miss;});t._pending={cases,eaches,total,pack};};
 async function commitLine(i,force){const t=myTasks[i];const miss=$('m_'+i)?.checked;
-  const cases=(t.pack>1||t.systemCase>0)?(Number($('c_'+i)?.value)||0):0;const eaches=Number($('e_'+i)?.value)||0;
-  const total=(force==='blocked'||miss)?0:cases*t.pack+eaches;
+  const known=t.pack>1;const pack=known?t.pack:(Number($('pc_'+i)?.value)||0);
+  const cases=Number($('c_'+i)?.value)||0;const eaches=Number($('e_'+i)?.value)||0;
+  const total=(force==='blocked'||miss)?0:eaches+cases*pack;
   const st=force||(miss?'missing':(total<t.demand?'short':'good'));const note=$('n_'+i)?.value||'';const prev=t.status;
+  const newPack=(pack>1&&!known)?pack:t.pack;
   try{
-    await updateDoc(doc(db,'tasks',t.id),{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});addWrites(1);
+    await updateDoc(doc(db,'tasks',t.id),{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});addWrites(1);
+    if(pack>1&&!known)writePack(t.code,pack);
     const inc={updatedAt:Date.now()};if(prev==='open')inc.checked=increment(1);inc[st]=increment(1);
     if(prev!=='open'&&prev!==st)inc[prev]=increment(-1);inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
     await setDoc(doc(db,'stats',t.day+'__'+ME),inc,{merge:true});addWrites(1);
-    Object.assign(t,{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});
+    Object.assign(t,{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});
     const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(statusClass(st));
     ln.querySelector('.badge').className='badge b-'+st;ln.querySelector('.badge').textContent=st.toUpperCase();
     $('ok_'+i).classList.remove('hidden');setTimeout(()=>$('ok_'+i).classList.add('hidden'),1500);lockLine(i,true);
@@ -571,7 +578,7 @@ function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin
   document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>{detailTab=b.dataset.t;renderDetailTabs();renderDetail();});}
 function rollup(){const byCode={};(detail||[]).forEach(t=>{const gk=(t.division||'')+'|'+t.code;const o=byCode[gk]=byCode[gk]||{division:t.division||'',code:t.code,name:t.name,demand:t.demand||0,sys:0,located:0,checked:0,bins:[]};
   o.sys+=t.systemTotal||0;o.bins.push(t);if(t.status!=='open'){o.checked++;}o.located+=(t.status==='open'?0:(t.countedTotal||0));});return byCode;}
-function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<div class="empty">Load bin detail first.</div>';return;}
+function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<div class="empty">Load team entries first.</div>';return;}
   if(detailTab==='totals'){const r=rollup();const rows=Object.values(r).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
     const covered=rows.filter(o=>o.located>=o.demand&&o.demand>0).length;
     host.innerHTML=`<div class="note">Located vs demand for the uploaded window. A product is <b>covered</b> once the team has confirmed enough across all its bins. ${covered}/${rows.length} products covered.</div>
@@ -638,7 +645,7 @@ function printCountSheet(list){
 }
 /* Apprise export — per-UOM negative/positive adjustments for incorrect bins */
 $('appriseBtn').onclick=()=>{
-  if(!detail){alert('Press “Load bin detail” first.');return;}
+  if(!detail){alert('Press “Load team entries” first.');return;}
   const fallback=((CONFIG.divisions||[])[0]||{}).code||'NH';
   const head=['Product Code','Location Prefix','Bin','','','UOM','Quantity','Adjust Code','Shorted',''];
   const rows=[head];
@@ -669,29 +676,32 @@ $('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory an
 
 /* manager edit of any line */
 let emIdx=-1;
-window.mgrEdit=function(i){emIdx=i;const t=window._grid[i];const isC=t.pack>1||t.systemCase>0;
+window.mgrEdit=function(i){emIdx=i;const t=window._grid[i];const known=t.pack>1;
   $('emTitle').textContent='Edit · '+t.bin+' · '+t.code;
-  $('emSub').textContent=`Apprise ${t.systemEach} each${isC?' | '+t.systemCase+' Case'+t.pack:''} · demand ${t.demand} · checked by ${t.checkedBy||'—'}`;
-  $('emEach').value=t.countedEach||0;$('emCaseWrap').style.display=isC?'flex':'none';$('emCase').value=t.countedCase||0;$('emCaseLbl').textContent='Case'+t.pack;
+  $('emSub').textContent=`Apprise ${t.systemEach} each${t.systemCase>0?' | '+t.systemCase+' Case'+t.pack:''} · demand ${t.demand} · checked by ${t.checkedBy||'—'}`;
+  $('emEach').value=t.countedEach||0;$('emCaseWrap').style.display='flex';$('emCase').value=t.countedCase||0;$('emCaseLbl').textContent=known?('Case'+t.pack):'';
+  $('emPerWrap').style.display=known?'none':'inline';$('emPer').value=PACKS[t.code]>1?PACKS[t.code]:'';
   $('emOutcome').value=t.status==='missing'?'missing':(t.status==='blocked'?'blocked':'auto');
   $('emNote').value=t.note||'';$('emMsg').textContent='';$('editModal').classList.remove('hidden');
 };
 $('emCancel').onclick=()=>$('editModal').classList.add('hidden');
 $('editModal').addEventListener('click',e=>{if(e.target===$('editModal'))$('editModal').classList.add('hidden');});
 $('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome').value;
-  const zero=(out==='missing'||out==='blocked');
+  const zero=(out==='missing'||out==='blocked');const known=t.pack>1;
+  const pack=known?t.pack:(Number($('emPer').value)||0);
   const eaches=zero?0:(Number($('emEach').value)||0);
-  const cases=zero?0:((t.pack>1||t.systemCase>0)?(Number($('emCase').value)||0):0);
-  const total=zero?0:cases*t.pack+eaches;
+  const cases=zero?0:(Number($('emCase').value)||0);
+  const total=zero?0:eaches+cases*pack;const newPack=(pack>1&&!known)?pack:t.pack;
   const status=out==='missing'?'missing':out==='blocked'?'blocked':(total<t.demand?'short':'good');
   const note=$('emNote').value;const member=t.checkedBy||t.assignedTo||ME;const prev=t.status;
   $('emMsg').textContent='saving…';
   try{
-    await updateDoc(doc(db,'tasks',t.id),{status,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:member,checkedAt:t.checkedAt||Date.now(),editedBy:ME,editedAt:Date.now()});addWrites(1);
+    await updateDoc(doc(db,'tasks',t.id),{status,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:member,checkedAt:t.checkedAt||Date.now(),editedBy:ME,editedAt:Date.now()});addWrites(1);
+    if(pack>1&&!known)writePack(t.code,pack);
     const inc={updatedAt:Date.now()};if(prev==='open')inc.checked=increment(1);inc[status]=increment(1);if(prev!=='open'&&prev!==status)inc[prev]=increment(-1);
     inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
     await setDoc(doc(db,'stats',t.day+'__'+member),inc,{merge:true});addWrites(1);
-    Object.assign(t,{status,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:member,editedBy:ME});
+    Object.assign(t,{status,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:member,editedBy:ME});
     $('editModal').classList.add('hidden');renderDetail();
   }catch(e){$('emMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
