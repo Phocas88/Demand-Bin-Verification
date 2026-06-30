@@ -8,27 +8,25 @@
 <style>
   :root{--navy:#1f4e78;--navy-d:#163a5a;--ink:#1a2230;--mut:#667085;--line:#e3e8ef;--bg:#f5f7fa;--card:#fff;
     --good:#2e7d32;--good-bg:#e9f6ea;--red:#c62828;--red-bg:#fdecea;--amber:#b26a00;--amber-bg:#fff6e5;
-    --shade:#f2f5f9;--new:#1f4e78;}
+    --purple:#6b2fd0;--purple-bg:#efe6ff;--shade:#f2f5f9;--new:#1f4e78;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
   header{background:var(--navy);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
-  header h1{font-size:15px;margin:0;font-weight:700}
-  header .grow{flex:1}
-  header .meta{font-size:12px;opacity:.85;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:700}.grow{flex:1}
+  header .meta{font-size:12px;opacity:.9;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .reads{background:rgba(255,255,255,.15);border-radius:6px;padding:2px 8px;font-weight:700}
-  .wrap{max-width:1180px;margin:0 auto;padding:14px}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px}
   .nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .nav button{padding:9px 14px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-weight:700;font-size:13px;color:var(--mut);cursor:pointer}
   .nav button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
-  h2{font-size:15px;margin:0 0 12px}
-  label{font-weight:700;font-size:13px}
+  h2{font-size:15px;margin:0 0 12px}label{font-weight:700;font-size:13px}
   input,select{font-family:inherit;font-size:13px}
   .in{padding:8px 10px;border:1px solid var(--line);border-radius:7px}
   .row-f{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0}
   button.act{background:var(--navy);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px}
-  button.act:hover{background:var(--navy-d)} button.act:disabled{opacity:.5;cursor:default}
-  button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+  button.act:hover{background:var(--navy-d)}button.act:disabled{opacity:.5;cursor:default}
+  button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}button.ghost:hover{background:#eef4fb}
   .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
   .drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;cursor:pointer;background:#fff}
   .drop.loaded{border-style:solid;border-color:var(--good);background:var(--good-bg)}
@@ -36,7 +34,7 @@
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:10px 0}
   .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
   .stat .n{font-size:22px;font-weight:800;color:var(--navy)}.stat .l{font-size:11px;color:var(--mut);line-height:1.3;margin-top:2px}
-  .stat.r .n{color:var(--red)}.stat.g .n{color:var(--good)}.stat.a .n{color:var(--amber)}
+  .stat.r .n{color:var(--red)}.stat.g .n{color:var(--good)}.stat.p .n{color:var(--purple)}
   table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
   th{background:#eef2f7;font-size:12px;position:sticky;top:0}
@@ -44,27 +42,29 @@
   .assignT td,.assignT th{white-space:nowrap}
   .binhead{background:#e8eef6;color:var(--navy);font-weight:800;padding:7px 12px;font-size:13px;border-top:2px solid var(--navy);position:sticky;top:0}
   .line{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
-  .line.good{background:var(--good-bg)} .line.short,.line.missing{background:var(--red-bg)} .line.blocked{background:#f3ecff}
-  .line .info{flex:1;min-width:180px}
-  .line .nm{font-weight:700} .line .sub{font-size:12px;color:var(--mut);margin-top:2px}
-  .line .req{font-weight:800}
+  .line.good{background:var(--good-bg)} .line.short,.line.missing{background:var(--red-bg)} .line.blocked{background:var(--purple-bg)}
+  .line .info{flex:1;min-width:240px}
+  .line .nm{font-weight:700}.line .sub{font-size:13px;color:var(--mut);margin-top:2px}
+  .line .req{font-weight:800;color:var(--ink)}
   .inputs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
   .inputs .qin{width:74px;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:15px;text-align:center}
-  .inputs .miss{display:flex;align-items:center;gap:5px;font-weight:700;color:var(--red)}
-  .inputs .miss input{width:20px;height:20px}
-  .tot{font-weight:800;font-size:14px;min-width:70px;text-align:right}
+  .inputs .miss{display:flex;align-items:center;gap:5px;font-weight:700;color:var(--red)}.inputs .miss input{width:20px;height:20px}
+  .ea{color:#2e7d32;font-weight:700}
+  .tot{font-weight:800;font-size:14px;min-width:60px;text-align:right}
   .badge{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;margin-right:5px}
   .b-new{background:#e7eefc;color:var(--new)}.b-qty{background:var(--amber-bg);color:var(--amber)}.b-stale{background:#fff6da;color:#7a5b00}.b-open{background:var(--red-bg);color:var(--red)}
-  .b-good{background:var(--good-bg);color:var(--good)}.b-short{background:var(--red-bg);color:var(--red)}.b-missing{background:var(--red-bg);color:var(--red)}.b-blocked{background:#efe6ff;color:#6b2fd0}
-  .submitbtn{padding:9px 14px;border-radius:8px;border:0;font-weight:800;cursor:pointer;background:var(--navy);color:#fff}
+  .b-good{background:var(--good-bg);color:var(--good)}.b-short{background:var(--red-bg);color:var(--red)}.b-missing{background:var(--red-bg);color:var(--red)}.b-blocked{background:var(--purple-bg);color:var(--purple)}
+  .submitbtn{padding:9px 14px;border-radius:8px;border:0;font-weight:800;cursor:pointer;color:#fff}
   .saved{color:var(--good);font-weight:700;font-size:12px}
   .empty{padding:36px;text-align:center;color:var(--mut)}
   .pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700}
-  .barwrap{background:#eef2f7;border-radius:6px;height:9px;overflow:hidden;min-width:90px}
-  .bar{height:100%;background:var(--good)}
+  .barwrap{background:#eef2f7;border-radius:6px;height:9px;overflow:hidden;min-width:90px;display:inline-block;vertical-align:middle}.bar{height:100%;background:var(--good)}
   .note{font-size:12px;color:var(--mut);margin:8px 2px}
-  .gate{max-width:420px;margin:8vh auto;text-align:center}
-  .gate .panel{padding:22px}
+  .gate{max-width:380px;margin:9vh auto;text-align:center}.gate .panel{padding:24px}
+  .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:14px auto}
+  .pinpad button{padding:16px;font-size:20px;font-weight:800;border:1px solid var(--line);background:#fff;border-radius:10px;cursor:pointer}
+  .pinpad button:active{background:#eef4fb}
+  .pindisp{font-size:28px;letter-spacing:10px;height:34px;font-weight:800;color:var(--navy)}
   .err{background:var(--red-bg);color:var(--red);border:1px solid #f1b0b0;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .ok{background:var(--good-bg);color:var(--good);border:1px solid #b6dab8;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .hidden{display:none}
@@ -73,30 +73,20 @@
 </head>
 <body>
 <header>
-  <h1>NH Demand Bin Verification</h1>
-  <div class="grow"></div>
-  <div class="meta">
-    <span id="whoami"></span>
-    <span class="reads" title="Approx Firestore document reads this session — you refresh manually, so this only moves when you press a button">reads: <b id="reads">0</b></span>
-    <button class="ghost" id="signout" style="padding:5px 10px;font-size:12px">Switch role</button>
-  </div>
+  <h1>NH Demand Bin Verification</h1><div class="grow"></div>
+  <div class="meta"><span id="whoami"></span>
+    <span class="reads" title="Approx Firestore reads this session">reads <b id="reads">0</b></span>
+    <span class="reads" title="Approx Firestore writes this session">writes <b id="writes">0</b></span>
+    <button class="ghost" id="signout" style="padding:5px 10px;font-size:12px">Log out</button></div>
 </header>
 
-<!-- ROLE GATE -->
+<!-- LOGIN -->
 <div id="gate" class="gate">
   <div class="panel">
-    <h2>Who are you?</h2>
+    <h2>Enter your PIN</h2>
     <div id="connState" class="note">connecting…</div>
-    <div class="row-f"><label style="width:100%;text-align:left">Your name / initials</label>
-      <input class="in" id="gateName" placeholder="e.g. T. Byrd" style="width:100%"></div>
-    <div class="row-f" style="justify-content:center;gap:10px">
-      <button class="act" id="beChecker">I'm checking bins</button>
-      <button class="act ghost" id="beManager">I'm the IC manager</button>
-    </div>
-    <div class="row-f hidden" id="pinRow" style="justify-content:center">
-      <input class="in" id="pin" type="password" inputmode="numeric" placeholder="Manager PIN" style="width:150px;text-align:center;letter-spacing:3px">
-      <button class="act" id="pinGo">Enter</button>
-    </div>
+    <div class="pindisp" id="pindisp"></div>
+    <div class="pinpad" id="pinpad"></div>
     <div id="gateErr"></div>
   </div>
 </div>
@@ -105,72 +95,78 @@
 <div id="app" class="wrap hidden">
   <div class="nav" id="nav"></div>
 
-  <!-- BUILD & ASSIGN (manager) -->
+  <!-- BUILD -->
   <section id="view-build" class="view hidden">
     <div class="panel">
       <h2>1 · Build today's list</h2>
       <div class="drops">
-        <div class="drop" id="dropBin"><h3>Bin Report</h3><p>today's NH export</p><div class="fn" id="fnBin"></div><input type="file" id="fileBin" accept=".xlsx,.xls" class="hidden"></div>
-        <div class="drop" id="dropDem"><h3>Demand File</h3><p>today's demand export</p><div class="fn" id="fnDem"></div><input type="file" id="fileDem" accept=".xlsx,.xls" class="hidden"></div>
+        <div class="drop" id="dropBin"><h3>Bin Report</h3><p>today's NH export</p><div class="fn" id="fnBin"></div><input type="file" id="fileBin" accept=".xlsx,.xls,.csv" class="hidden"></div>
+        <div class="drop" id="dropDem"><h3>Demand Report (CSV)</h3><p>exported from your demand system</p><div class="fn" id="fnDem"></div><input type="file" id="fileDem" accept=".xlsx,.xls,.csv" class="hidden"></div>
       </div>
       <div class="row-f">
-        <label>Re-check after</label><input class="in" type="number" id="windowDays" value="7" min="1" style="width:64px"> days
-        <label>Special bins</label><input class="in" type="text" id="special" value="NHMissing, Replenshorts, NHDM, NHInvest" style="flex:1;min-width:220px">
+        <label>Demand window</label>
+        <select class="in" id="windowSel"><option>7</option><option>14</option><option selected>30</option><option>60</option><option>70</option><option>80</option><option>90</option></select> day
+        <label>Demand column</label><select class="in" id="demCol"></select>
       </div>
-      <div class="row-f">
-        <button class="act" id="btnCompute">Compute list (reads skip-memory)</button>
-        <span id="computeMsg" class="note"></span>
-      </div>
+      <div class="row-f"><button class="act" id="btnCompute">Compute list</button><span id="computeMsg" class="note"></span></div>
       <div id="computeOut"></div>
     </div>
-
     <div class="panel hidden" id="assignPanel">
       <h2>2 · Assign the team</h2>
-      <p class="note">Leave <b>Levels</b> blank for someone who can reach anything. Enter e.g. <b>1</b> or <b>1-2</b> for a counter limited to those levels — their bins get spliced off to them and everyone else covers the rest. (Levels read from bins like 41-02-<b>02</b>.)</p>
-      <div class="scroll" style="max-height:28vh"><table class="assignT"><thead><tr><th>Member</th><th>Levels</th><th></th></tr></thead><tbody id="memberInputs"></tbody></table></div>
-      <div class="row-f"><button class="ghost act" id="addMember">+ Add member</button><button class="act" id="autoSplit">Auto-assign</button></div>
-      <div class="scroll" style="max-height:32vh"><table class="assignT"><thead><tr><th>Member</th><th>Levels</th><th>Lines</th><th>Coverage</th></tr></thead><tbody id="zoneBody"></tbody></table></div>
+      <p class="note">Leave <b>Levels</b> blank for someone who can reach anything; enter e.g. <b>1</b> or <b>1-2</b> for a counter limited to those levels (read from bins like 41-02-<b>02</b>). Their bins splice off to them; everyone else covers the rest.</p>
+      <div class="scroll" style="max-height:26vh"><table class="assignT"><thead><tr><th>Member</th><th>Levels</th></tr></thead><tbody id="memberInputs"></tbody></table></div>
+      <div class="row-f"><button class="act" id="autoSplit">Auto-assign</button></div>
+      <div class="scroll" style="max-height:30vh"><table class="assignT"><thead><tr><th>Member</th><th>Levels</th><th>Cards</th><th>Coverage</th></tr></thead><tbody id="zoneBody"></tbody></table></div>
       <div id="unassignedMsg"></div>
-      <div class="row-f">
-        <button class="act" id="btnPublish">Publish to team</button>
-        <span id="publishMsg" class="note"></span>
-      </div>
+      <div class="row-f"><button class="act" id="btnPublish">Publish to team</button><span id="publishMsg" class="note"></span></div>
     </div>
   </section>
 
-  <!-- MY CHECKS (checker) -->
+  <!-- MY CHECKS -->
   <section id="view-check" class="view hidden">
-    <div class="panel">
-      <div class="row-f">
-        <h2 style="margin:0">My bin checks</h2><div class="grow"></div>
-        <button class="act" id="loadMine">Load my list</button>
-        <button class="ghost act" id="submitAll">Submit all done</button>
-      </div>
-      <div class="cards" id="myCards"></div>
-    </div>
+    <div class="panel"><div class="row-f"><h2 style="margin:0">My bin checks</h2><div class="grow"></div>
+      <button class="act" id="loadMine">Load my list</button></div>
+      <div class="cards" id="myCards"></div></div>
     <div class="panel" style="padding:0"><div class="scroll" style="max-height:70vh;border:0" id="myList"><div class="empty">Press “Load my list”.</div></div></div>
   </section>
 
-  <!-- DASHBOARD (manager) -->
+  <!-- DASHBOARD -->
   <section id="view-dash" class="view hidden">
     <div class="panel">
-      <div class="row-f"><h2 style="margin:0">Live progress</h2><div class="grow"></div>
-        <button class="act" id="refreshDash">Refresh</button>
-        <span id="dashStamp" class="note"></span></div>
+      <div class="row-f"><h2 style="margin:0">Live progress</h2><span class="pill" id="windowPill"></span><div class="grow"></div>
+        <button class="act" id="refreshDash">Refresh totals</button><span id="dashStamp" class="note"></span></div>
       <div class="cards" id="dashCards"></div>
-      <div class="scroll" style="max-height:34vh"><table><thead><tr><th>Member</th><th>Progress</th><th>Checked</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th></tr></thead><tbody id="memberBody"></tbody></table></div>
+      <div class="scroll" style="max-height:30vh"><table><thead><tr><th>Member</th><th>Progress</th><th>Checked</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th></tr></thead><tbody id="memberBody"></tbody></table></div>
     </div>
     <div class="panel">
-      <div class="row-f"><h2 style="margin:0">Outs — launch bin traces</h2><div class="grow"></div>
-        <button class="ghost act" id="exportOuts">Export outs</button></div>
-      <p class="note">Lines counted short of demand or marked missing. Product totals roll up across bins.</p>
-      <div class="scroll" style="max-height:40vh"><table><thead><tr><th>Product</th><th>Demand</th><th>Located (all bins)</th><th>Bins out</th><th>Trace</th></tr></thead><tbody id="outsBody"></tbody></table></div>
+      <div class="row-f"><h2 style="margin:0">Bin detail, product totals &amp; consolidation</h2><div class="grow"></div>
+        <button class="act" id="loadDetail">Load bin detail</button>
+        <button class="ghost act" id="appriseBtn">Apprise export (incorrect bins)</button>
+        <span id="detailMsg" class="note"></span></div>
+      <div class="nav" id="detailTabs" style="margin:6px 0"></div>
+      <div id="detailOut"><div class="empty">Press “Load bin detail” (one read) to populate product totals, the bin grid, and consolidation.</div></div>
     </div>
     <div class="panel">
       <div class="row-f"><h2 style="margin:0">End of day</h2><div class="grow"></div>
-        <button class="act" id="archiveDay">Save day to memory &amp; archive</button>
-        <span id="archiveMsg" class="note"></span></div>
-      <p class="note">Folds today's verified counts into the skip-memory (so tomorrow they're skipped) and closes the day. Records stay searchable in Archive.</p>
+        <button class="act" id="archiveDay">Save day to memory &amp; archive</button><span id="archiveMsg" class="note"></span></div>
+      <p class="note">Folds today's verified counts into the skip-memory (so tomorrow they're skipped) and closes the day.</p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-set" class="view hidden">
+    <div class="panel">
+      <h2>Team &amp; PINs</h2>
+      <p class="note">Each person logs in with their own PIN. Deactivate instead of deleting to keep their history. Master PIN <b>1988</b> always grants manager access (so you can't lock yourself out).</p>
+      <div class="scroll" style="max-height:38vh"><table class="assignT"><thead><tr><th>Name</th><th>PIN</th><th>Role</th><th>Active</th><th></th></tr></thead><tbody id="userBody"></tbody></table></div>
+      <div class="row-f"><button class="ghost act" id="addUser">+ Add person</button></div>
+    </div>
+    <div class="panel">
+      <h2>Settings</h2>
+      <div class="row-f"><label>Apprise location prefix</label><input class="in" id="setPrefix" value="NH" style="width:90px">
+        <label>Re-check after</label><input class="in" type="number" id="setWindow" value="7" min="1" style="width:64px"> days</div>
+      <div class="row-f"><label>Special / trace-only bins</label><input class="in" id="setSpecial" value="NHMissing, Replenshorts, NHDM, NHInvest" style="flex:1;min-width:240px"></div>
+      <div class="row-f"><button class="act" id="saveSettings">Save settings &amp; team</button><span id="setMsg" class="note"></span></div>
     </div>
   </section>
 
@@ -179,299 +175,287 @@
     <div class="panel">
       <h2>Archive search</h2>
       <div class="row-f">
-        <select class="in" id="archField"><option value="bin">Bin</option><option value="code">Product code</option><option value="member">Checked by</option></select>
-        <input class="in" id="archVal" placeholder="value (exact)" style="flex:1;min-width:160px">
-        <button class="act" id="archSearch">Search</button>
-        <span id="archMsg" class="note"></span>
-      </div>
-      <div class="scroll" style="max-height:60vh"><table><thead><tr><th>Day</th><th>Bin</th><th>Code</th><th>U/M</th><th>Demand</th><th>Counted</th><th>Result</th><th>By</th><th>When</th><th>Note</th></tr></thead><tbody id="archBody"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h2>Member daily report</h2>
-      <div class="row-f">
-        <input class="in" id="repMember" placeholder="member" style="width:160px">
-        <input class="in" type="date" id="repDay">
-        <button class="act" id="repRun">Run</button><span id="repMsg" class="note"></span>
-      </div>
-      <div id="repOut"></div>
+        <select class="in" id="archField"><option value="bin">Bin</option><option value="code">Product code</option><option value="checkedBy">Checked by</option></select>
+        <input class="in" id="archVal" placeholder="exact value" style="flex:1;min-width:160px">
+        <button class="act" id="archSearch">Search</button><span id="archMsg" class="note"></span></div>
+      <div class="scroll" style="max-height:60vh"><table><thead><tr><th>Day</th><th>Bin</th><th>Code</th><th>Demand</th><th>Counted</th><th>Result</th><th>By</th><th>When</th><th>Note</th></tr></thead><tbody id="archBody"></tbody></table></div>
     </div>
   </section>
 </div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc,
   writeBatch, query, where, increment } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAaP36f_ubgINso1pzVNAfcud_Zr4aBj3I",
-  authDomain: "demand-bin-verification.firebaseapp.com",
-  projectId: "demand-bin-verification",
-  storageBucket: "demand-bin-verification.firebasestorage.app",
-  messagingSenderId: "1052154132814",
-  appId: "1:1052154132814:web:107a7c3e4c5903b7ae861f"
+  apiKey:"AIzaSyAaP36f_ubgINso1pzVNAfcud_Zr4aBj3I", authDomain:"demand-bin-verification.firebaseapp.com",
+  projectId:"demand-bin-verification", storageBucket:"demand-bin-verification.firebasestorage.app",
+  messagingSenderId:"1052154132814", appId:"1:1052154132814:web:107a7c3e4c5903b7ae861f"
 };
-const fbApp = initializeApp(firebaseConfig);
-const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
+const fbApp=initializeApp(firebaseConfig);
+const auth=getAuth(fbApp);
+const db=getFirestore(fbApp);
 
-/* ---------- tiny helpers ---------- */
 const $=id=>document.getElementById(id);
-let READS=0; const addReads=n=>{READS+=n;$('reads').textContent=READS;};
+let READS=0,WRITES=0;
+const addReads=n=>{READS+=n;$('reads').textContent=READS;};
+const addWrites=n=>{WRITES+=n;$('writes').textContent=WRITES;};
 const todayStr=()=>{const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;};
 function natkey(s){s=String(s);return s.split(/(\d+)/).filter(x=>x!=='').map(p=>/^\d+$/.test(p)?{n:parseInt(p,10)}:{t:p.toLowerCase()});}
 function natcmp(a,b){const ka=natkey(a),kb=natkey(b);for(let i=0;i<Math.max(ka.length,kb.length);i++){const x=ka[i],y=kb[i];if(x===undefined)return-1;if(y===undefined)return 1;if('n'in x&&'n'in y){if(x.n!==y.n)return x.n-y.n;}else if('t'in x&&'t'in y){if(x.t!==y.t)return x.t<y.t?-1:1;}else return('n'in x)?-1:1;}return 0;}
 function col(row,names){const k=Object.keys(row);for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase()===w.toLowerCase());if(h)return h;}for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase().includes(w.toLowerCase()));if(h)return h;}return null;}
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(v){const n=Number(v);return(v===''||v==null||isNaN(n))?esc(v):n.toLocaleString();}
-function zoneOf(bin){const m=String(bin).match(/^[A-Za-z]*\d+|^[A-Za-z]+/);return m?m[0].toUpperCase():String(bin).slice(0,3).toUpperCase();}
 function packSize(um){const m=String(um).match(/(\d+)/);return /case/i.test(um)&&m?parseInt(m[1],10):1;}
 function levelOf(bin){const m=String(bin).match(/(\d+)-(\d+)-(\d+)/);if(m)return parseInt(m[3],10);const m2=String(bin).match(/-(\d+)\s*$/);if(m2)return parseInt(m2[1],10);return null;}
-function splitQty(qty,pack){qty=Number(qty)||0;return pack>1?{cases:Math.floor(qty/pack),eaches:qty%pack}:{cases:0,eaches:qty};}
 function parseLevels(spec){spec=String(spec).trim();if(!spec)return null;const set=new Set();spec.split(',').forEach(part=>{const m=part.trim().match(/^(\d+)\s*-\s*(\d+)$/);if(m){for(let i=+m[1];i<=+m[2];i++)set.add(i);}else if(/^\d+$/.test(part.trim()))set.add(+part.trim());});return set.size?set:null;}
+function zoneOf(bin){const m=String(bin).match(/^[A-Za-z]*\d+|^[A-Za-z]+/);return m?m[0].toUpperCase():String(bin).slice(0,3).toUpperCase();}
 function readFile(file){return new Promise(res=>{const r=new FileReader();r.onload=e=>res(XLSX.read(new Uint8Array(e.target.result),{type:'array'}));r.readAsArrayBuffer(file);});}
 function firstSheet(wb,test){for(const n of wb.SheetNames){const j=XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:''});if(j.length&&(!test||test(j[0])))return j;}return null;}
 
-/* ---------- session ---------- */
-let ME='', ROLE='', binRows=null, demRows=null, computed=null, zoneAssign={}, members=[];
-ME=localStorage.getItem('bv_name')||'';
-$('gateName').value=ME;
+/* ---------- session + config ---------- */
+let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null;
+const BOOTSTRAP='1988';
+function defaultConfig(){return {users:[],prefix:'NH',special:'NHMissing, Replenshorts, NHDM, NHInvest',recheckDays:7};}
 
-/* ---------- auth ---------- */
-onAuthStateChanged(auth,u=>{
-  if(u){$('connState').textContent='connected ✓';$('connState').className='ok';}
-});
-signInAnonymously(auth).catch(e=>{
-  $('connState').className='err';
-  $('connState').innerHTML='Could not connect. In the Firebase console enable <b>Authentication → Anonymous</b> and <b>Firestore Database</b>, then reload. ('+esc(e.code||e.message)+')';
-});
+signInAnonymously(auth).then(async()=>{
+  $('connState').textContent='connected ✓';$('connState').className='ok';
+  try{const c=await getDoc(doc(db,'meta','config'));addReads(1);CONFIG=c.exists()?{...defaultConfig(),...c.data()}:defaultConfig();}
+  catch(e){CONFIG=defaultConfig();}
+}).catch(e=>{$('connState').className='err';$('connState').innerHTML='Connect failed — enable <b>Authentication → Anonymous</b> and <b>Firestore</b> in Firebase, then reload. ('+esc(e.code||e.message)+')';});
 
-/* ---------- gate ---------- */
-function enter(role){
-  ME=$('gateName').value.trim();
-  if(!ME){$('gateErr').innerHTML='<div class="err">Enter your name first.</div>';return;}
-  localStorage.setItem('bv_name',ME);ROLE=role;
-  $('whoami').textContent=ME+' · '+(role==='manager'?'IC Manager':'Checker');
+/* ---------- PIN pad ---------- */
+let pinBuf='';
+function renderPad(){
+  const keys=['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+  $('pinpad').innerHTML=keys.map(k=>`<button data-k="${k}">${k}</button>`).join('');
+  document.querySelectorAll('#pinpad button').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k;
+    if(k==='⌫')pinBuf=pinBuf.slice(0,-1);
+    else if(k==='OK')return submitPin();
+    else if(pinBuf.length<8)pinBuf+=k;
+    $('pindisp').textContent='•'.repeat(pinBuf.length);
+  });
+}
+renderPad();
+function submitPin(){
+  if(!CONFIG){$('gateErr').innerHTML='<div class="err">Still connecting — try again in a second.</div>';return;}
+  const pin=pinBuf;pinBuf='';$('pindisp').textContent='';
+  const u=(CONFIG.users||[]).find(x=>String(x.pin)===pin&&x.active!==false);
+  if(u){ME=u.name;ROLE=u.role||'checker';return enter();}
+  if(pin===BOOTSTRAP){ME='Manager';ROLE='manager';return enter();}
+  $('gateErr').innerHTML='<div class="err">PIN not recognized.</div>';
+}
+function enter(){
+  $('whoami').textContent=ME+' · '+(ROLE==='manager'?'IC Manager':'Checker');
   $('gate').classList.add('hidden');$('app').classList.remove('hidden');
   buildNav();
 }
-$('beChecker').onclick=()=>enter('checker');
-const MANAGER_PIN='1988';
-$('beManager').onclick=()=>{$('pinRow').classList.remove('hidden');$('gateErr').innerHTML='';$('pin').value='';$('pin').focus();};
-$('pinGo').onclick=()=>{if($('pin').value!==MANAGER_PIN){$('gateErr').innerHTML='<div class="err">Wrong PIN.</div>';return;}enter('manager');};
-$('pin').addEventListener('keydown',e=>{if(e.key==='Enter')$('pinGo').click();});
-$('signout').onclick=()=>{$('app').classList.add('hidden');$('gate').classList.remove('hidden');};
+$('signout').onclick=()=>{ME='';ROLE='';$('app').classList.add('hidden');$('gate').classList.remove('hidden');$('gateErr').innerHTML='';};
 
-const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['arch','Archive']],
+const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['set','Team & Settings'],['arch','Archive']],
              checker:[['check','My Checks'],['arch','Archive']]};
-function buildNav(){
-  const nav=$('nav');nav.innerHTML='';
-  VIEWS[ROLE].forEach(([id,label],i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>show(id);nav.appendChild(b);if(i===0)b.classList.add('on');});
+function buildNav(){const nav=$('nav');nav.innerHTML='';
+  VIEWS[ROLE].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>show(id);nav.appendChild(b);});
+  if(ROLE==='manager')renderUsers();
   show(VIEWS[ROLE][0][0]);
 }
-function show(id){
-  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
-  $('view-'+id).classList.remove('hidden');
-  [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));
-}
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));$('view-'+id).classList.remove('hidden');
+  [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));}
 
-/* ================= MANAGER: BUILD ================= */
+/* ================= SETTINGS / USERS ================= */
+function renderUsers(){
+  $('setPrefix').value=CONFIG.prefix||'NH';$('setWindow').value=CONFIG.recheckDays||7;$('setSpecial').value=CONFIG.special||'';
+  const us=CONFIG.users||[];
+  $('userBody').innerHTML=us.map((u,i)=>`<tr>
+    <td><input class="in un" data-i="${i}" value="${esc(u.name)}" style="width:130px"></td>
+    <td><input class="in up" data-i="${i}" value="${esc(u.pin)}" style="width:80px" inputmode="numeric"></td>
+    <td><select class="in ur" data-i="${i}"><option value="checker"${u.role!=='manager'?' selected':''}>Checker</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option></select></td>
+    <td><input type="checkbox" class="ua" data-i="${i}" ${u.active!==false?'checked':''} style="width:18px;height:18px"></td>
+    <td><button class="ghost act urm" data-i="${i}" style="padding:5px 9px">✕</button></td></tr>`).join('')
+    ||'<tr><td colspan="5" class="empty">No users yet — add your team, then Save.</td></tr>';
+  document.querySelectorAll('.un').forEach(x=>x.onchange=e=>CONFIG.users[+e.target.dataset.i].name=e.target.value.trim());
+  document.querySelectorAll('.up').forEach(x=>x.onchange=e=>CONFIG.users[+e.target.dataset.i].pin=e.target.value.trim());
+  document.querySelectorAll('.ur').forEach(x=>x.onchange=e=>CONFIG.users[+e.target.dataset.i].role=e.target.value);
+  document.querySelectorAll('.ua').forEach(x=>x.onchange=e=>CONFIG.users[+e.target.dataset.i].active=e.target.checked);
+  document.querySelectorAll('.urm').forEach(x=>x.onclick=e=>{CONFIG.users.splice(+e.target.dataset.i,1);renderUsers();});
+}
+$('addUser').onclick=()=>{CONFIG.users=CONFIG.users||[];CONFIG.users.push({name:'',pin:'',role:'checker',active:true});renderUsers();};
+$('saveSettings').onclick=async()=>{
+  CONFIG.prefix=$('setPrefix').value.trim()||'NH';CONFIG.recheckDays=Number($('setWindow').value)||7;CONFIG.special=$('setSpecial').value;
+  const pins=(CONFIG.users||[]).filter(u=>u.name&&u.pin).map(u=>u.pin);
+  if(new Set(pins).size!==pins.length){$('setMsg').innerHTML='<span style="color:#c62828">Duplicate PINs — make them unique.</span>';return;}
+  CONFIG.users=(CONFIG.users||[]).filter(u=>u.name&&u.pin);
+  try{await setDoc(doc(db,'meta','config'),{...CONFIG,updatedAt:Date.now()});addWrites(1);$('setMsg').innerHTML='<span class="saved">Saved.</span>';renderUsers();}
+  catch(e){$('setMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+};
+
+/* ================= BUILD ================= */
 function wireDrop(dropId,inputId,kind){const drop=$(dropId),inp=$(inputId);
   drop.onclick=()=>inp.click();
   inp.onchange=async e=>{const f=e.target.files[0];if(!f)return;const wb=await readFile(f);
     if(kind==='bin'){binRows=firstSheet(wb,r=>col(r,['Bin Name'])&&col(r,['Qty On Hand']));if(!binRows){alert('Not a bin report.');return;}$('dropBin').classList.add('loaded');$('fnBin').textContent='✓ '+f.name;}
-    else{demRows=firstSheet(wb,r=>col(r,['Demand Qty']));if(!demRows){alert('Not a demand file.');return;}$('dropDem').classList.add('loaded');$('fnDem').textContent='✓ '+f.name;}
+    else{demRows=firstSheet(wb,r=>col(r,['Product Code']));if(!demRows){alert('No Product Code column found.');return;}$('dropDem').classList.add('loaded');$('fnDem').textContent='✓ '+f.name;fillDemCols();}
   };
+  ['dragover'].forEach(ev=>drop.addEventListener(ev,e=>e.preventDefault()));
+  drop.addEventListener('drop',async e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){inp.files=e.dataTransfer.files;inp.onchange({target:{files:[f]}});}});
 }
 wireDrop('dropBin','fileBin','bin');wireDrop('dropDem','fileDem','dem');
-
-async function readHistory(){
-  // packed chunks -> {key:{sq,at,out,open}}
-  const map={};
-  const idx=await getDoc(doc(db,'history','index'));addReads(1);
-  if(!idx.exists())return map;
-  const n=idx.data().chunkCount||0;
-  for(let i=0;i<n;i++){const c=await getDoc(doc(db,'history','chunk_'+i));addReads(1);
-    if(c.exists()){const data=c.data().data||{};for(const k in data)map[k]=data[k];}}
-  return map;
-}
-async function writeHistory(map){
-  const keys=Object.keys(map);const SIZE=3000;const chunks=[];
-  for(let i=0;i<keys.length;i+=SIZE){const o={};keys.slice(i,i+SIZE).forEach(k=>o[k]=map[k]);chunks.push(o);}
-  const b=writeBatch(db);
-  chunks.forEach((o,i)=>b.set(doc(db,'history','chunk_'+i),{data:o}));
-  b.set(doc(db,'history','index'),{chunkCount:chunks.length,keys:keys.length,updatedAt:Date.now()});
-  await b.commit();
+function fillDemCols(){
+  const cands=Object.keys(demRows[0]).filter(k=>/qty|demand|need|day|week|order/i.test(k)||/\d/.test(k));
+  const opts=cands.length?cands:Object.keys(demRows[0]);
+  const pref=col(demRows[0],['Demand Qty','Demand']);
+  $('demCol').innerHTML=opts.map(o=>`<option ${o===pref?'selected':''}>${esc(o)}</option>`).join('');
 }
 
 $('btnCompute').onclick=async()=>{
   if(!(binRows&&demRows)){alert('Load both files first.');return;}
   $('computeMsg').textContent='reading skip-memory…';
   let history={};try{history=await readHistory();}catch(e){$('computeMsg').innerHTML='<span style="color:#c62828">memory read failed: '+esc(e.code||e.message)+'</span>';return;}
-  const windowDays=Number($('windowDays').value)||7;
-  const specials=new Set($('special').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
-  computed=computeList(binRows,demRows,history,windowDays,specials);
-  $('computeMsg').textContent=`${computed.active.length} to check · ${computed.skipped} skipped · ${computed.trace.length} trace · memory ${Object.keys(history).length} keys`;
-  renderCompute();renderZones();$('assignPanel').classList.remove('hidden');
+  const windowDays=Number(CONFIG.recheckDays)||7;
+  const specials=new Set((CONFIG.special||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
+  const demColName=$('demCol').value;
+  computed=computeList(binRows,demRows,history,windowDays,specials,demColName);
+  computed.window=$('windowSel').value;
+  $('computeMsg').textContent=`${computed.active.length} cards to check · ${computed.skipped} skipped · ${computed.trace.length} trace · memory ${Object.keys(history).length}`;
+  $('computeOut').innerHTML=`<div class="cards">
+    <div class="stat"><div class="n">${computed.active.length}</div><div class="l">Cards to check</div></div>
+    <div class="stat g"><div class="n">${computed.skipped}</div><div class="l">Skipped (verified)</div></div>
+    <div class="stat r"><div class="n">${computed.trace.length}</div><div class="l">Bin trace</div></div></div>`;
+  renderZones();$('assignPanel').classList.remove('hidden');
 };
 
-function computeList(binRows,demRows,history,windowDays,specials){
+function computeList(binRows,demRows,history,windowDays,specials,demColName){
   const now=new Date();
-  const b0=binRows[0],d0=demRows[0];
-  const bc={bin:col(b0,['Bin Name']),code:col(b0,['Product Code']),oh:col(b0,['Qty On Hand']),um:col(b0,['U/M','UM'])};
-  const dc={code:col(d0,['Product Code']),name:col(d0,['Product Name']),dem:col(d0,['Demand Qty']),pick:col(d0,['Pickable Qty']),short:col(d0,['Shortfall'])};
+  const bc={bin:col(binRows[0],['Bin Name']),code:col(binRows[0],['Product Code']),oh:col(binRows[0],['Qty On Hand']),um:col(binRows[0],['U/M','UM'])};
+  const dCode=col(demRows[0],['Product Code']),dName=col(demRows[0],['Product Name']);
   const nameMap={},demMap={},order=[],seen=new Set();
-  demRows.forEach(r=>{const code=String(r[dc.code]).trim();if(!code||seen.has(code))return;seen.add(code);
-    nameMap[code]=dc.name?String(r[dc.name]).trim():'';demMap[code]=dc.dem?Number(r[dc.dem])||0:0;order.push(code);});
-  const dset=new Set(order),byProd={};
-  binRows.forEach(r=>{const code=String(r[bc.code]).trim();if(!dset.has(code))return;
-    (byProd[code]=byProd[code]||[]).push({bin:String(r[bc.bin]).trim(),oh:Number(r[bc.oh])||0,um:bc.um?String(r[bc.um]).trim():'each'});});
+  demRows.forEach(r=>{const code=String(r[dCode]).trim();if(!code||seen.has(code))return;seen.add(code);
+    nameMap[code]=dName?String(r[dName]).trim():'';demMap[code]=Number(r[demColName])||0;order.push(code);});
+  const dset=new Set(order);
   const isSp=b=>specials.has(String(b).trim().toUpperCase());
+  // merge bin rows by code -> bin -> each/case
+  const byCode={};
+  binRows.forEach(r=>{const code=String(r[bc.code]).trim();if(!dset.has(code))return;
+    const bin=String(r[bc.bin]).trim(),um=bc.um?String(r[bc.um]).trim():'each',oh=Number(r[bc.oh])||0,pk=packSize(um);
+    const m=byCode[code]=byCode[code]||{};const o=m[bin]=m[bin]||{bin,systemEach:0,systemCase:0,pack:1};
+    if(pk>1){o.systemCase+=oh;o.pack=pk;}else o.systemEach+=oh;});
   const active=[],trace=[];let skipped=0;
-  order.forEach(code=>{const locs=byProd[code];
-    if(!locs){trace.push({code,name:nameMap[code],demand:demMap[code],loc:'NOT IN BIN REPORT',oh:'',reason:'No location'});return;}
-    const real=locs.filter(l=>!isSp(l.bin));
-    if(real.length===0){const sl=[...new Set(locs.map(l=>l.bin))].sort(natcmp).join(', ');
-      trace.push({code,name:nameMap[code],demand:demMap[code],loc:sl,oh:locs.reduce((s,l)=>s+l.oh,0),reason:'Only in special bins'});return;}
-    real.forEach(l=>{const key=l.bin+'|'+code+'|'+l.um;const h=history[key];let st;
+  order.forEach(code=>{const bins=byCode[code];
+    if(!bins){trace.push({code,name:nameMap[code],demand:demMap[code],loc:'NOT IN BIN REPORT',reason:'No location'});return;}
+    const realBins=Object.values(bins).filter(b=>!isSp(b.bin));
+    if(!realBins.length){const sl=Object.keys(bins).sort(natcmp).join(', ');
+      trace.push({code,name:nameMap[code],demand:demMap[code],loc:sl,reason:'Only in special bins'});return;}
+    realBins.forEach(b=>{const key=b.bin+'|'+code;const sysTotal=b.systemEach+b.systemCase*b.pack;const h=history[key];let st;
       if(!h)st={code:'NEW',lbl:'NEW',cls:'b-new'};
       else if(h.open)st={code:'OPEN',lbl:'OPEN ADJ',cls:'b-open'};
-      else if(Number(l.oh)!==Number(h.sq))st={code:'QTY',lbl:'QTY MOVED',cls:'b-qty'};
+      else if(Number(sysTotal)!==Number(h.sq))st={code:'QTY',lbl:'QTY MOVED',cls:'b-qty'};
       else if(h.at&&((now-new Date(h.at))/864e5)>windowDays)st={code:'STALE',lbl:'STALE',cls:'b-stale'};
-      else {skipped++;return;}
-      active.push({key,bin:l.bin,code,name:nameMap[code],um:l.um,pack:packSize(l.um),systemQty:l.oh,demand:demMap[code],zone:zoneOf(l.bin),level:levelOf(l.bin),status:st});});
+      else{skipped++;return;}
+      active.push({key,bin:b.bin,code,name:nameMap[code],pack:b.pack,systemEach:b.systemEach,systemCase:b.systemCase,
+        systemTotal:sysTotal,demand:demMap[code],zone:zoneOf(b.bin),level:levelOf(b.bin),status:st});});
   });
   active.sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
   return {active,skipped,trace,history,day:todayStr()};
 }
 
-function renderCompute(){
-  const c=computed;
-  $('computeOut').innerHTML=`<div class="cards">
-    <div class="stat"><div class="n">${c.active.length}</div><div class="l">To check</div></div>
-    <div class="stat g"><div class="n">${c.skipped}</div><div class="l">Skipped (verified)</div></div>
-    <div class="stat r"><div class="n">${c.trace.length}</div><div class="l">Bin trace</div></div>
-    <div class="stat"><div class="n">${[...new Set(c.active.map(a=>a.zone))].length}</div><div class="l">Zones</div></div></div>`;
-}
+/* assignment (level-aware splice) */
 let memberRows=[{name:'',levels:''}];
 function renderMemberInputs(){
   $('memberInputs').innerHTML=memberRows.map((m,i)=>`<tr>
-    <td><input class="in mn" data-i="${i}" value="${esc(m.name)}" placeholder="name/initials" style="width:150px"></td>
+    <td><input class="in mn" data-i="${i}" value="${esc(m.name)}" list="userlist" placeholder="name" style="width:150px"></td>
     <td><input class="in ml" data-i="${i}" value="${esc(m.levels)}" placeholder="all" style="width:90px"></td>
-    <td><button class="ghost act mr" data-i="${i}" style="padding:6px 10px">✕</button></td></tr>`).join('');
+    <td><button class="ghost act mrm" data-i="${i}" style="padding:5px 9px">✕</button></td></tr>`).join('')
+    +`<datalist id="userlist">${(CONFIG.users||[]).map(u=>`<option value="${esc(u.name)}">`).join('')}</datalist>`;
   document.querySelectorAll('.mn').forEach(x=>x.onchange=e=>memberRows[+e.target.dataset.i].name=e.target.value.trim());
   document.querySelectorAll('.ml').forEach(x=>x.onchange=e=>memberRows[+e.target.dataset.i].levels=e.target.value.trim());
-  document.querySelectorAll('.mr').forEach(x=>x.onclick=e=>{memberRows.splice(+e.target.dataset.i,1);if(!memberRows.length)memberRows=[{name:'',levels:''}];renderMemberInputs();});
+  document.querySelectorAll('.mrm').forEach(x=>x.onclick=e=>{memberRows.splice(+e.target.dataset.i,1);if(!memberRows.length)memberRows=[{name:'',levels:''}];renderMemberInputs();});
 }
-$('addMember').onclick=()=>{memberRows.push({name:'',levels:''});renderMemberInputs();};
-function renderAssign(rows){
-  $('zoneBody').innerHTML=(rows&&rows.length)?rows.map(b=>`<tr><td><b>${esc(b.member)}</b></td><td>${esc(b.levels)}</td><td>${b.lines}</td><td>${esc(b.coverage)}</td></tr>`).join('')
-    :'<tr><td colspan="4" class="empty">Add members and press “Auto-assign”.</td></tr>';
+$('addMember')&&($('addMember').onclick=()=>{memberRows.push({name:'',levels:''});renderMemberInputs();});
+function renderAssign(rows){$('zoneBody').innerHTML=(rows&&rows.length)?rows.map(b=>`<tr><td><b>${esc(b.member)}</b></td><td>${esc(b.levels)}</td><td>${b.lines}</td><td>${esc(b.coverage)}</td></tr>`).join('')
+  :'<tr><td colspan="4" class="empty">Add members and press Auto-assign.</td></tr>';}
+function renderZones(){
+  if(memberRows.length===1&&!memberRows[0].name){memberRows=(CONFIG.users||[]).filter(u=>u.active!==false&&u.role!=='manager').map(u=>({name:u.name,levels:''}));if(!memberRows.length)memberRows=[{name:'',levels:''}];}
+  renderMemberInputs();renderAssign(null);$('unassignedMsg').innerHTML='';
 }
-function renderZones(){ renderMemberInputs(); renderAssign(null); $('unassignedMsg').innerHTML=''; }
+// dynamic add-member button (panel built without one) -> add control
+(function(){const p=$('assignPanel');const bar=p.querySelector('.row-f');const b=document.createElement('button');b.className='ghost act';b.textContent='+ Add member';b.onclick=()=>{memberRows.push({name:'',levels:''});renderMemberInputs();};bar.insertBefore(b,bar.firstChild);})();
 $('autoSplit').onclick=()=>{
   const mem=memberRows.map(m=>({name:m.name,levels:parseLevels(m.levels)})).filter(m=>m.name);
-  if(!mem.length){alert('Add at least one member with a name.');return;}
-  const restricted=mem.filter(m=>m.levels), general=mem.filter(m=>!m.levels);
+  if(!mem.length){alert('Add at least one member.');return;}
+  const restricted=mem.filter(m=>m.levels),general=mem.filter(m=>!m.levels);
   const claimed=new Set();restricted.forEach(m=>m.levels.forEach(l=>claimed.add(l)));
-  const A=computed.active;A.forEach(l=>l.assignedTo='');
-  const counts={};mem.forEach(m=>counts[m.name]=0);
-  A.forEach(l=>{const lv=l.level;
-    if(lv!=null&&claimed.has(lv)){
-      const elig=restricted.filter(m=>m.levels.has(lv)).sort((a,b)=>counts[a.name]-counts[b.name]);
-      l.assignedTo=elig[0].name;counts[elig[0].name]++;
-    }});
+  const A=computed.active;A.forEach(l=>l.assignedTo='');const counts={};mem.forEach(m=>counts[m.name]=0);
+  A.forEach(l=>{const lv=l.level;if(lv!=null&&claimed.has(lv)){const e=restricted.filter(m=>m.levels.has(lv)).sort((a,b)=>counts[a.name]-counts[b.name]);l.assignedTo=e[0].name;counts[e[0].name]++;}});
   const pool=A.filter(l=>!l.assignedTo);let unassigned=0;
-  if(general.length){
-    const per=Math.ceil(pool.length/general.length);let idx=0;
-    for(let g=0;g<general.length&&idx<pool.length;g++){
-      let end=Math.min(pool.length,idx+per);
-      while(end<pool.length&&pool[end].bin===pool[end-1].bin)end++;
-      pool.slice(idx,end).forEach(l=>{l.assignedTo=general[g].name;counts[general[g].name]++;});idx=end;
-    }
+  if(general.length){const per=Math.ceil(pool.length/general.length);let idx=0;
+    for(let g=0;g<general.length&&idx<pool.length;g++){let end=Math.min(pool.length,idx+per);while(end<pool.length&&pool[end].bin===pool[end-1].bin)end++;pool.slice(idx,end).forEach(l=>{l.assignedTo=general[g].name;counts[general[g].name]++;});idx=end;}
     if(idx<pool.length)pool.slice(idx).forEach(l=>{l.assignedTo=general[general.length-1].name;counts[general[general.length-1].name]++;});
-  }else{ unassigned=pool.length; }
-  const summary=mem.map(m=>{const lines=A.filter(l=>l.assignedTo===m.name);
-    const lv=m.levels?[...m.levels].sort((a,b)=>a-b).join(','):'all';
-    const cov=m.levels?('levels '+lv):(lines.length?lines[0].bin+' → '+lines[lines.length-1].bin:'—');
-    return {member:m.name,levels:lv,lines:lines.length,coverage:cov};});
+  }else unassigned=pool.length;
+  const summary=mem.map(m=>{const lines=A.filter(l=>l.assignedTo===m.name);const lv=m.levels?[...m.levels].sort((a,b)=>a-b).join(','):'all';
+    return {member:m.name,levels:lv,lines:lines.length,coverage:m.levels?('levels '+lv):(lines.length?lines[0].bin+' → '+lines[lines.length-1].bin:'—')};});
   renderAssign(summary);
-  $('unassignedMsg').innerHTML=unassigned?`<div class="err">${unassigned} lines sit on levels no one can reach. Add a member who covers them (or leave one member's Levels blank) before publishing.</div>`:'';
+  $('unassignedMsg').innerHTML=unassigned?`<div class="err">${unassigned} cards on unreachable levels — add a member who covers them.</div>`:'';
 };
 $('btnPublish').onclick=async()=>{
   if(!computed){alert('Compute first.');return;}
-  members=[...new Set(computed.active.map(a=>a.assignedTo).filter(Boolean))];
-  if(!members.length){alert('Press “Auto-split evenly” to assign members first.');return;}
+  const mem=[...new Set(computed.active.map(a=>a.assignedTo).filter(Boolean))];
+  if(!mem.length){alert('Press Auto-assign first.');return;}
   $('btnPublish').disabled=true;$('publishMsg').textContent='publishing…';
   try{
-    const day=computed.day;
-    // fold any prior unarchived day automatically is handled at archive; here just publish today
-    const tasks=computed.active.map(a=>({...a,assignedTo:a.assignedTo||''}));
-    // batch write tasks
-    let writes=0;
-    for(let i=0;i<tasks.length;i+=400){
-      const b=writeBatch(db);
-      tasks.slice(i,i+400).forEach(t=>{
-        b.set(doc(db,'tasks',day+'__'+t.key),{
-          day,bin:t.bin,code:t.code,name:t.name,um:t.um,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),
-          systemQty:t.systemQty,demand:t.demand,assignedTo:t.assignedTo,
-          statusFlag:t.status.lbl,status:'open',countedCase:0,countedEach:0,countedTotal:0,
-          checkedBy:'',checkedAt:0,note:'',archived:false});
-      });
-      await b.commit();writes+=Math.min(400,tasks.length-i);
-    }
-    // init per-member stats + meta
-    const sb=writeBatch(db);
-    const perMember={};tasks.forEach(t=>{if(t.assignedTo)perMember[t.assignedTo]=(perMember[t.assignedTo]||0)+1;});
-    Object.entries(perMember).forEach(([m,n])=>sb.set(doc(db,'stats',day+'__'+m),{day,member:m,assigned:n,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0,updatedAt:Date.now()}));
-    sb.set(doc(db,'meta','current'),{day,members:Object.keys(perMember),active:tasks.length,publishedAt:Date.now(),trace:computed.trace});
-    await sb.commit();
-    $('publishMsg').innerHTML=`<span class="saved">Published ${writes} lines to ${Object.keys(perMember).length} members.</span>`;
+    const day=computed.day,tasks=computed.active;let w=0;
+    for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);
+      tasks.slice(i,i+400).forEach(t=>b.set(doc(db,'tasks',day+'__'+t.key),{
+        day,bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),
+        systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:computed.window,
+        assignedTo:t.assignedTo||'',statusFlag:t.status.lbl,status:'open',
+        countedEach:0,countedCase:0,countedTotal:0,checkedBy:'',checkedAt:0,note:'',archived:false}));
+      await b.commit();addWrites(Math.min(400,tasks.length-i));w+=Math.min(400,tasks.length-i);}
+    const sb=writeBatch(db);const per={};tasks.forEach(t=>{if(t.assignedTo)per[t.assignedTo]=(per[t.assignedTo]||0)+1;});
+    Object.entries(per).forEach(([m,n])=>sb.set(doc(db,'stats',day+'__'+m),{day,member:m,assigned:n,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0,updatedAt:Date.now()}));
+    sb.set(doc(db,'meta','current'),{day,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});
+    await sb.commit();addWrites(Object.keys(per).length+1);
+    $('publishMsg').innerHTML=`<span class="saved">Published ${w} cards to ${Object.keys(per).length} members for the ${computed.window}-day window.</span>`;
   }catch(e){$('publishMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
   $('btnPublish').disabled=false;
 };
 
+/* history packed chunks */
+async function readHistory(){const map={};const idx=await getDoc(doc(db,'history','index'));addReads(1);if(!idx.exists())return map;
+  const n=idx.data().chunkCount||0;for(let i=0;i<n;i++){const c=await getDoc(doc(db,'history','chunk_'+i));addReads(1);if(c.exists()){const d=c.data().data||{};for(const k in d)map[k]=d[k];}}return map;}
+async function writeHistory(map){const keys=Object.keys(map),SIZE=3000,chunks=[];for(let i=0;i<keys.length;i+=SIZE){const o={};keys.slice(i,i+SIZE).forEach(k=>o[k]=map[k]);chunks.push(o);}
+  const b=writeBatch(db);chunks.forEach((o,i)=>b.set(doc(db,'history','chunk_'+i),{data:o}));b.set(doc(db,'history','index'),{chunkCount:chunks.length,keys:keys.length,updatedAt:Date.now()});await b.commit();addWrites(chunks.length+1);}
+
 /* ================= CHECKER ================= */
 let myTasks=[];
-$('loadMine').onclick=async()=>{
-  $('myList').innerHTML='<div class="empty">loading…</div>';
-  const day=todayStr();
-  try{
-    const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('assignedTo','==',ME),where('archived','==',false)));
-    addReads(qs.size||1);
-    myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
-    renderMine();
-  }catch(e){
-    $('myList').innerHTML='<div class="err" style="margin:14px">'+esc(e.code||e.message)+
-      (String(e.message).includes('index')?' — open the link in the browser console to create the index (one click), then retry.':'')+'</div>';
-  }
+$('loadMine').onclick=async()=>{$('myList').innerHTML='<div class="empty">loading…</div>';const day=todayStr();
+  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('assignedTo','==',ME),where('archived','==',false)));addReads(qs.size||1);
+    myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));renderMine();
+  }catch(e){$('myList').innerHTML='<div class="err" style="margin:14px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
 };
 function statusClass(s){return s==='good'?'good':(s==='short'||s==='missing')?s:(s==='blocked'?'blocked':'');}
 function renderMine(){
-  const done=myTasks.filter(t=>t.status!=='open').length;
-  const out=myTasks.filter(t=>['short','missing','blocked'].includes(t.status)).length;
+  const done=myTasks.filter(t=>t.status!=='open').length,out=myTasks.filter(t=>['short','missing','blocked'].includes(t.status)).length;
   $('myCards').innerHTML=`<div class="stat"><div class="n">${myTasks.length}</div><div class="l">Assigned</div></div>
     <div class="stat g"><div class="n">${done}</div><div class="l">Done</div></div>
     <div class="stat r"><div class="n">${out}</div><div class="l">Out / blocked</div></div>`;
-  if(!myTasks.length){$('myList').innerHTML='<div class="empty">Nothing assigned to “'+esc(ME)+'” today. Check the name matches what the manager assigned.</div>';return;}
+  if(!myTasks.length){$('myList').innerHTML='<div class="empty">Nothing assigned to “'+esc(ME)+'” today.</div>';return;}
   let html='',prev=null;
   myTasks.forEach((t,i)=>{
     if(t.bin!==prev){prev=t.bin;html+=`<div class="binhead">📍 ${esc(t.bin)}</div>`;}
-    const isCase=t.pack>1;
-    const sys=splitQty(t.systemQty,t.pack);
+    const isCase=t.pack>1||t.systemCase>0;
     html+=`<div class="line ${statusClass(t.status)}" id="ln_${i}">
-      <div class="info" style="min-width:260px">
+      <div class="info">
         <div class="nm"><span class="badge ${'b-'+t.status}">${t.status==='open'?(t.statusFlag||'CHECK'):t.status.toUpperCase()}</span>${esc(t.code)} <b>[${esc(t.name)}]</b></div>
-        <div class="sub" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:13px">
-          <span><b>Apprise:</b> ${sys.eaches} <span style="color:#2e7d32;font-weight:700">each</span>${isCase?` &nbsp;|&nbsp; ${sys.cases} <span style="color:#2e7d32;font-weight:700">Case${t.pack}</span>`:''}</span>
+        <div class="sub" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap">
+          <span><b>Apprise:</b> ${t.systemEach} <span class="ea">each</span>${isCase?` &nbsp;|&nbsp; ${t.systemCase} <span class="ea">Case${t.pack}</span>`:''}</span>
           <span class="req">Demand: ${fmt(t.demand)}</span></div>
-        <div class="inputs">
-          <span><b>Count:</b></span>
-          <input class="qin" id="e_${i}" type="number" inputmode="numeric" min="0" value="${t.countedEach||''}" oninput="window.recalc(${i})"> <span style="color:#2e7d32;font-weight:700">each</span>
-          ${isCase?` &nbsp;|&nbsp; <input class="qin" id="c_${i}" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" oninput="window.recalc(${i})"> <span style="color:#2e7d32;font-weight:700">Case${t.pack}</span>`:''}
-          <label class="miss" style="margin-left:auto"><span>MISSING:</span><input type="checkbox" id="m_${i}" onchange="window.recalc(${i})" ${t.status==='missing'?'checked':''}></label>
-        </div>
+        <div class="inputs"><span><b>Count:</b></span>
+          <input class="qin" id="e_${i}" type="number" inputmode="numeric" min="0" value="${t.countedEach||''}" oninput="window.recalc(${i})"> <span class="ea">each</span>
+          ${isCase?` &nbsp;|&nbsp; <input class="qin" id="c_${i}" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" oninput="window.recalc(${i})"> <span class="ea">Case${t.pack}</span>`:''}
+          <label class="miss" style="margin-left:auto"><span>MISSING</span><input type="checkbox" id="m_${i}" onchange="window.recalc(${i})" ${t.status==='missing'?'checked':''}></label></div>
         <div class="inputs"><span><b>Notes:</b></span><input class="in" id="n_${i}" value="${esc(t.note||'')}" style="flex:1;min-width:160px"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -479,155 +463,142 @@ function renderMine(){
         <button class="submitbtn" style="background:#2e7d32" onclick="window.saveOne(${i})">Save</button>
         <button class="submitbtn" style="background:#e07b00" onclick="window.editOne(${i})">Edit</button>
         <button class="submitbtn" style="background:#7b3ff2" onclick="window.blockOne(${i})">Blocked</button>
-        <div class="saved hidden" id="ok_${i}">saved ✓</div>
-      </div></div>`;
+        <div class="saved hidden" id="ok_${i}">saved ✓</div></div></div>`;
   });
-  $('myList').innerHTML=html;
-  myTasks.forEach((t,i)=>{window.recalc(i);if(t.status!=='open')lockLine(i,true);});
+  $('myList').innerHTML=html;myTasks.forEach((t,i)=>{window.recalc(i);if(t.status!=='open')lockLine(i,true);});
 }
-function lockLine(i,locked){['e_'+i,'c_'+i,'m_'+i,'n_'+i].forEach(id=>{const el=$(id);if(el)el.disabled=locked;});}
-window.editOne=function(i){lockLine(i,false);(($('e_'+i))||{}).focus&&$('e_'+i).focus();};
-window.recalc=function(i){
-  const t=myTasks[i];const miss=$('m_'+i).checked;
-  const cases=t.pack>1?(Number($('c_'+i)?.value)||0):0;
-  const eaches=Number($('e_'+i)?.value)||0;
-  const total=miss?0:cases*t.pack+eaches;
-  const st=miss?'missing':(total<t.demand?'short':'good');
+function lockLine(i,l){['e_'+i,'c_'+i,'m_'+i,'n_'+i].forEach(id=>{const el=$(id);if(el)el.disabled=l;});}
+window.editOne=i=>{lockLine(i,false);$('e_'+i)&&$('e_'+i).focus();};
+window.recalc=function(i){const t=myTasks[i];const miss=$('m_'+i).checked;
+  const cases=(t.pack>1||t.systemCase>0)?(Number($('c_'+i)?.value)||0):0;const eaches=Number($('e_'+i)?.value)||0;
+  const total=miss?0:cases*t.pack+eaches;const st=miss?'missing':(total<t.demand?'short':'good');
   $('t_'+i).textContent=miss?'MISSING':total;
   if(t.status!=='blocked'){const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(st);}
-  if($('c_'+i))$('c_'+i).disabled=miss;$('e_'+i).disabled=miss;
-  t._pending={cases,eaches,total,st,miss};
-};
-async function commitLine(i,forceStatus){
-  const t=myTasks[i];const miss=$('m_'+i)?.checked;
-  const cases=t.pack>1?(Number($('c_'+i)?.value)||0):0;
-  const eaches=Number($('e_'+i)?.value)||0;
-  const total=(forceStatus==='blocked'||miss)?0:cases*t.pack+eaches;
-  const st=forceStatus||(miss?'missing':(total<t.demand?'short':'good'));
-  const note=$('n_'+i)?.value||'';
-  const prev=t.status;
+  if($('c_'+i))$('c_'+i).disabled=miss;$('e_'+i).disabled=miss;t._pending={cases,eaches,total};};
+async function commitLine(i,force){const t=myTasks[i];const miss=$('m_'+i)?.checked;
+  const cases=(t.pack>1||t.systemCase>0)?(Number($('c_'+i)?.value)||0):0;const eaches=Number($('e_'+i)?.value)||0;
+  const total=(force==='blocked'||miss)?0:cases*t.pack+eaches;
+  const st=force||(miss?'missing':(total<t.demand?'short':'good'));const note=$('n_'+i)?.value||'';const prev=t.status;
   try{
-    await updateDoc(doc(db,'tasks',t.id),{status:st,countedCase:cases,countedEach:eaches,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});
-    const inc={updatedAt:Date.now()};
-    if(prev==='open')inc.checked=increment(1);
-    inc[st]=increment(1);
-    if(prev!=='open'&&prev!==st)inc[prev]=increment(-1);
-    inc.eaches=increment(eaches-(t.countedEach||0));
-    inc.cases=increment(cases-(t.countedCase||0));
-    await setDoc(doc(db,'stats',t.day+'__'+ME),inc,{merge:true});
-    Object.assign(t,{status:st,countedCase:cases,countedEach:eaches,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});
+    await updateDoc(doc(db,'tasks',t.id),{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});addWrites(1);
+    const inc={updatedAt:Date.now()};if(prev==='open')inc.checked=increment(1);inc[st]=increment(1);
+    if(prev!=='open'&&prev!==st)inc[prev]=increment(-1);inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
+    await setDoc(doc(db,'stats',t.day+'__'+ME),inc,{merge:true});addWrites(1);
+    Object.assign(t,{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,note,checkedBy:ME,checkedAt:Date.now()});
     const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(statusClass(st));
     ln.querySelector('.badge').className='badge b-'+st;ln.querySelector('.badge').textContent=st.toUpperCase();
-    $('ok_'+i).classList.remove('hidden');setTimeout(()=>$('ok_'+i).classList.add('hidden'),1500);
-    lockLine(i,true);renderMineCards();
-  }catch(e){alert('Save failed: '+(e.code||e.message));}
-}
-window.saveOne=i=>commitLine(i);
-window.blockOne=i=>commitLine(i,'blocked');
-function renderMineCards(){const done=myTasks.filter(t=>t.status!=='open').length;const out=myTasks.filter(t=>['short','missing','blocked'].includes(t.status)).length;
-  $('myCards').children[1].querySelector('.n').textContent=done;$('myCards').children[2].querySelector('.n').textContent=out;}
-$('submitAll').onclick=async()=>{for(let i=0;i<myTasks.length;i++){if(myTasks[i].status==='open'&&myTasks[i]._pending)await commitLine(i);}};
+    $('ok_'+i).classList.remove('hidden');setTimeout(()=>$('ok_'+i).classList.add('hidden'),1500);lockLine(i,true);
+    const done=myTasks.filter(x=>x.status!=='open').length,out=myTasks.filter(x=>['short','missing','blocked'].includes(x.status)).length;
+    $('myCards').children[1].querySelector('.n').textContent=done;$('myCards').children[2].querySelector('.n').textContent=out;
+  }catch(e){alert('Save failed: '+(e.code||e.message));}}
+window.saveOne=i=>commitLine(i);window.blockOne=i=>commitLine(i,'blocked');
 
 /* ================= DASHBOARD ================= */
 $('refreshDash').onclick=loadDash;
-async function loadDash(){
-  const day=todayStr();
+async function loadDash(){const day=todayStr();
   try{
+    let cur=null;try{const c=await getDoc(doc(db,'meta','current'));addReads(1);if(c.exists())cur=c.data();}catch(e){}
+    $('windowPill').textContent=cur?(cur.window+'-day window'):'';
     const ms=await getDocs(query(collection(db,'stats'),where('day','==',day)));addReads(ms.size||1);
-    const stats=ms.docs.map(d=>d.data());
-    const tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
-    stats.forEach(s=>{tot.assigned+=s.assigned||0;tot.checked+=s.checked||0;tot.good+=s.good||0;tot.short+=s.short||0;tot.missing+=s.missing||0;tot.blocked+=s.blocked||0;});
+    const stats=ms.docs.map(d=>d.data());const tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
+    stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;});
     $('dashCards').innerHTML=`<div class="stat"><div class="n">${tot.assigned}</div><div class="l">Assigned</div></div>
       <div class="stat"><div class="n">${tot.checked}</div><div class="l">Checked</div></div>
       <div class="stat g"><div class="n">${tot.good}</div><div class="l">Good</div></div>
       <div class="stat r"><div class="n">${tot.short}</div><div class="l">Short</div></div>
       <div class="stat r"><div class="n">${tot.missing}</div><div class="l">Missing</div></div>
-      <div class="stat" style="--c:#6b2fd0"><div class="n" style="color:#6b2fd0">${tot.blocked}</div><div class="l">Blocked</div></div>`;
-    $('memberBody').innerHTML=stats.sort((a,b)=>(b.checked||0)-(a.checked||0)).map(s=>{
-      const pct=s.assigned?Math.round(100*(s.checked||0)/s.assigned):0;
+      <div class="stat p"><div class="n">${tot.blocked}</div><div class="l">Blocked</div></div>`;
+    $('memberBody').innerHTML=stats.sort((a,b)=>(b.checked||0)-(a.checked||0)).map(s=>{const pct=s.assigned?Math.round(100*(s.checked||0)/s.assigned):0;
       return `<tr><td><b>${esc(s.member)}</b></td><td><div class="barwrap"><div class="bar" style="width:${pct}%"></div></div> ${pct}%</td>
-        <td>${s.checked||0}/${s.assigned||0}</td><td>${s.good||0}</td><td style="color:#c62828">${s.short||0}</td><td style="color:#c62828">${s.missing||0}</td><td style="color:#6b2fd0">${s.blocked||0}</td></tr>`;}).join('')
-      ||'<tr><td colspan="7" class="empty">No assignments published yet today.</td></tr>';
-    // outs: query short+missing+blocked, roll up by product
-    const os=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('status','in',['short','missing','blocked'])));addReads(os.size||1);
-    const byCode={};os.docs.map(d=>d.data()).forEach(t=>{(byCode[t.code]=byCode[t.code]||{name:t.name,demand:t.demand,located:0,bins:[]});
-      byCode[t.code].located+=t.countedTotal||0;byCode[t.code].bins.push(t.bin+' ('+(t.status==='missing'?'missing':t.status==='blocked'?'blocked':t.countedTotal)+')');});
-    const rows=Object.entries(byCode).sort((a,b)=>(a[1].located-a[1].demand)-(b[1].located-b[1].demand));
-    $('outsBody').innerHTML=rows.map(([code,o])=>`<tr><td><b>${esc(code)}</b><br><span class="note">${esc(o.name)}</span></td>
-      <td>${fmt(o.demand)}</td><td style="color:${o.located<o.demand?'#c62828':'#2e7d32'};font-weight:800">${fmt(o.located)}</td>
-      <td>${o.bins.map(b=>'<span class="pill">'+esc(b)+'</span>').join(' ')}</td>
-      <td>${o.located<o.demand?'<span class="badge b-missing">TRACE</span>':'covered'}</td></tr>`).join('')
-      ||'<tr><td colspan="5" class="empty">No outs. 🎉</td></tr>';
-    window._outs=rows;
-    $('dashStamp').textContent='as of '+new Date().toLocaleTimeString();
-  }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link, then retry)':'')+'</span>';}
+      <td>${s.checked||0}/${s.assigned||0}</td><td>${s.good||0}</td><td style="color:#c62828">${s.short||0}</td><td style="color:#c62828">${s.missing||0}</td><td style="color:#6b2fd0">${s.blocked||0}</td></tr>`;}).join('')
+      ||'<tr><td colspan="7" class="empty">Nothing published yet today.</td></tr>';
+    $('dashStamp').textContent='totals as of '+new Date().toLocaleTimeString();
+  }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 }
-$('exportOuts').onclick=()=>{
-  if(!window._outs||!window._outs.length){alert('Refresh first.');return;}
-  const wb=XLSX.utils.book_new();
-  const rows=[['Product Code','Name','Demand','Located','Short by','Bins out']].concat(
-    window._outs.map(([c,o])=>[c,o.name,o.demand,o.located,Math.max(0,o.demand-o.located),o.bins.join(', ')]));
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Outs');
-  XLSX.writeFile(wb,'NH_Outs_'+todayStr()+'.xlsx');
+let detailTab='totals';
+$('loadDetail').onclick=async()=>{const day=todayStr();$('detailMsg').textContent='reading today\'s cards…';
+  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
+    detail=qs.docs.map(d=>d.data());$('detailMsg').textContent=`${detail.length} cards loaded (${qs.size} reads)`;renderDetailTabs();renderDetail();
+  }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link)':'')+'</span>';}
 };
-
-/* archive day: fold today's checked tasks into history, mark archived */
-$('archiveDay').onclick=async()=>{
-  if(!confirm('Save today\'s counts to the skip-memory and archive the day?'))return;
-  $('archiveMsg').textContent='reading today…';
-  const day=todayStr();
-  try{
-    const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    const tasks=qs.docs.map(d=>({id:d.id,...d.data()}));
-    const history=await readHistory();
-    tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;
-      history[t.key||(t.bin+'|'+t.code+'|'+t.um)]={sq:t.systemQty,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
+function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
+  $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
+  document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>{detailTab=b.dataset.t;renderDetailTabs();renderDetail();});}
+function rollup(){const byCode={};(detail||[]).forEach(t=>{const o=byCode[t.code]=byCode[t.code]||{code:t.code,name:t.name,demand:t.demand||0,sys:0,located:0,checked:0,bins:[]};
+  o.sys+=t.systemTotal||0;o.bins.push(t);if(t.status!=='open'){o.checked++;}o.located+=(t.status==='open'?0:(t.countedTotal||0));});return byCode;}
+function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<div class="empty">Load bin detail first.</div>';return;}
+  if(detailTab==='totals'){const r=rollup();const rows=Object.values(r).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
+    const covered=rows.filter(o=>o.located>=o.demand&&o.demand>0).length;
+    host.innerHTML=`<div class="note">Located vs demand for the uploaded window. A product is <b>covered</b> once the team has confirmed enough across all its bins. ${covered}/${rows.length} products covered.</div>
+    <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Apprise sys</th><th>Located</th><th>Bins checked</th><th>Status</th></tr></thead><tbody>${
+      rows.map(o=>{const cov=o.demand>0&&o.located>=o.demand;const part=o.checked<o.bins.length;
+        return `<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.sys)}</td>
+        <td style="font-weight:800;color:${cov?'#2e7d32':'#c62828'}">${fmt(o.located)}</td><td>${o.checked}/${o.bins.length}</td>
+        <td>${cov?'<span class="badge b-good">COVERED</span>':(part?'<span class="badge b-stale">IN PROGRESS</span>':'<span class="badge b-missing">SHORT '+fmt(o.demand-o.located)+'</span>')}</td></tr>`;}).join('')}</tbody></table></div>`;
+  }else if(detailTab==='bins'){const d=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
+    host.innerHTML=`<div class="scroll"><table><thead><tr><th>Bin</th><th>Code</th><th>Apprise</th><th>Counted</th><th>Status</th><th>By</th></tr></thead><tbody>${
+      d.map(t=>{const isC=t.pack>1||t.systemCase>0;return `<tr><td>${esc(t.bin)}</td><td><b>${esc(t.code)}</b></td>
+      <td>${t.systemEach} ea${isC?' | '+t.systemCase+' c'+t.pack:''}</td>
+      <td>${t.status==='open'?'—':(t.status==='missing'?'<b style="color:#c62828">missing</b>':t.status==='blocked'?'<b style="color:#6b2fd0">blocked</b>':(t.countedEach||0)+' ea'+(isC?' | '+(t.countedCase||0)+' c'+t.pack:''))}</td>
+      <td><span class="badge b-${t.status}">${esc(t.status)}</span></td><td>${esc(t.checkedBy||'')}</td></tr>`;}).join('')}</tbody></table></div>`;
+  }else if(detailTab==='cons'){const r=rollup();const multi=Object.values(r).filter(o=>o.bins.length>1)
+      .map(o=>({...o,partials:o.bins.filter(b=>(b.systemTotal||0)>0&&(b.systemTotal||0)<(b.pack||1)*2).length}))
+      .sort((a,b)=>b.bins.length-a.bins.length||b.partials-a.partials);
+    host.innerHTML=`<div class="note">Products spread across multiple bins — candidates to consolidate into fewer locations. “Partial bins” are locations holding less than ~2 cases (loose stock worth combining). Capacity isn't in the file, so treat as a shortlist.</div>
+    <div class="scroll"><table><thead><tr><th>Product</th><th>Bins</th><th>Partial bins</th><th>Total located/sys</th><th>Where</th></tr></thead><tbody>${
+      multi.map(o=>`<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td><b>${o.bins.length}</b></td><td>${o.partials||''}</td>
+      <td>${fmt(o.located)} / ${fmt(o.sys)}</td><td>${o.bins.map(b=>'<span class="pill">'+esc(b.bin)+': '+(b.systemTotal||0)+'</span>').join(' ')}</td></tr>`).join('')
+      ||'<tr><td colspan="5" class="empty">No multi-bin products.</td></tr>'}</tbody></table></div>`;
+  }else{const r=rollup();const outs=Object.values(r).filter(o=>o.checked>0&&o.located<o.demand).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
+    host.innerHTML=`<div class="note">Products where confirmed located is below demand — launch bin traces.</div>
+    <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Located</th><th>Short by</th><th>Bins out</th></tr></thead><tbody>${
+      outs.map(o=>`<tr><td><b>${esc(o.code)}</b><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td>
+      <td style="color:#c62828;font-weight:800">${fmt(o.located)}</td><td>${fmt(o.demand-o.located)}</td>
+      <td>${o.bins.filter(b=>['short','missing','blocked'].includes(b.status)).map(b=>'<span class="pill">'+esc(b.bin)+' ('+b.status+')</span>').join(' ')}</td></tr>`).join('')
+      ||'<tr><td colspan="5" class="empty">No outs. 🎉</td></tr>'}</tbody></table></div>`;
+  }
+}
+/* Apprise export — per-UOM negative/positive adjustments for incorrect bins */
+$('appriseBtn').onclick=()=>{
+  if(!detail){alert('Press “Load bin detail” first.');return;}
+  const prefix=(CONFIG.prefix||'NH');
+  const head=['Product Code','Location Prefix','Bin','','','UOM','Quantity','Adjust Code','Shorted',''];
+  const rows=[head];
+  detail.filter(t=>t.status==='good'||t.status==='short'||t.status==='missing').forEach(t=>{
+    const eachAdj=(t.countedEach||0)-(t.systemEach||0);
+    const caseAdj=(t.countedCase||0)-(t.systemCase||0);
+    if(eachAdj!==0)rows.push([t.code,prefix,t.bin,'','','EA',eachAdj,'GenQtyAdj','',  '']);
+    if(caseAdj!==0)rows.push([t.code,prefix,t.bin,'','','Case'+t.pack,caseAdj,'GenQtyAdj','','']);
+  });
+  if(rows.length===1){alert('No incorrect bins (no count variances) to export yet.');return;}
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:16},{wch:14},{wch:16},{wch:5},{wch:5},{wch:9},{wch:11},{wch:13},{wch:9},{wch:5}];
+  // force text on A,B,C so bins like 41-02-02 stay text
+  rows.forEach((r,i)=>{if(i===0)return;['A','B','C'].forEach(cl=>{const ref=cl+(i+1);if(ws[ref]){ws[ref].t='s';ws[ref].v=String(ws[ref].v);}});});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Apprise Import');
+  XLSX.writeFile(wb,'Apprise_Adjustment_'+todayStr()+'.xlsx');
+};
+$('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory and archive the day?'))return;$('archiveMsg').textContent='reading…';const day=todayStr();
+  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
+    const tasks=qs.docs.map(d=>({id:d.id,...d.data()}));const history=await readHistory();
+    tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;history[t.bin+'|'+t.code]={sq:t.systemTotal,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
     await writeHistory(history);
-    // mark archived
-    for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);tasks.slice(i,i+400).forEach(t=>b.update(doc(db,'tasks',t.id),{archived:true}));await b.commit();}
-    $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' lines. Memory now '+Object.keys(history).length+' keys.</span>';
+    for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);tasks.slice(i,i+400).forEach(t=>b.update(doc(db,'tasks',t.id),{archived:true}));await b.commit();addWrites(Math.min(400,tasks.length-i));}
+    $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards. Memory now '+Object.keys(history).length+' keys.</span>';
   }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
 
 /* ================= ARCHIVE SEARCH ================= */
-$('archSearch').onclick=async()=>{
-  const field=$('archField').value,val=$('archVal').value.trim();
-  if(!val){alert('Enter a value.');return;}
-  $('archMsg').textContent='searching…';
-  const fmap={bin:'bin',code:'code',member:'checkedBy'};
-  try{
-    const qs=await getDocs(query(collection(db,'tasks'),where(fmap[field],'==',val)));addReads(qs.size||1);
+$('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();if(!val){alert('Enter a value.');return;}$('archMsg').textContent='searching…';
+  try{const qs=await getDocs(query(collection(db,'tasks'),where(field,'==',val)));addReads(qs.size||1);
     const rows=qs.docs.map(d=>d.data()).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
-    $('archBody').innerHTML=rows.map(t=>`<tr><td>${esc(t.day)}</td><td>${esc(t.bin)}</td><td>${esc(t.code)}</td><td>${esc(t.um)}</td>
-      <td>${fmt(t.demand)}</td><td>${t.status==='missing'?'<b style="color:#c62828">missing</b>':fmt(t.countedTotal)}</td>
-      <td><span class="badge ${'b-'+(t.status||'new')}">${esc(t.status||'open')}</span></td><td>${esc(t.checkedBy||'')}</td>
-      <td>${t.checkedAt?new Date(t.checkedAt).toLocaleString():''}</td><td>${esc(t.note||'')}</td></tr>`).join('')
-      ||'<tr><td colspan="10" class="empty">No records.</td></tr>';
-    $('archMsg').textContent=rows.length+' records ('+ (qs.size)+' reads)';
+    $('archBody').innerHTML=rows.map(t=>`<tr><td>${esc(t.day)}</td><td>${esc(t.bin)}</td><td>${esc(t.code)}</td><td>${fmt(t.demand)}</td>
+      <td>${t.status==='missing'?'<b style="color:#c62828">missing</b>':fmt(t.countedTotal)}</td><td><span class="badge b-${t.status||'new'}">${esc(t.status||'open')}</span></td>
+      <td>${esc(t.checkedBy||'')}</td><td>${t.checkedAt?new Date(t.checkedAt).toLocaleString():''}</td><td>${esc(t.note||'')}</td></tr>`).join('')
+      ||'<tr><td colspan="9" class="empty">No records.</td></tr>';
+    $('archMsg').textContent=rows.length+' records ('+qs.size+' reads)';
   }catch(e){$('archMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
-$('repRun').onclick=async()=>{
-  const m=$('repMember').value.trim(),day=$('repDay').value;
-  if(!m||!day){alert('Enter member and date.');return;}
-  $('repMsg').textContent='loading…';
-  try{
-    const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('checkedBy','==',m)));addReads(qs.size||1);
-    const rows=qs.docs.map(d=>d.data());
-    const good=rows.filter(r=>r.status==='good').length,short=rows.filter(r=>r.status==='short').length,miss=rows.filter(r=>r.status==='missing').length;
-    const eaches=rows.reduce((s,r)=>s+(r.countedEach||0),0),cases=rows.reduce((s,r)=>s+(r.countedCase||0),0);
-    $('repOut').innerHTML=`<div class="cards">
-      <div class="stat"><div class="n">${rows.length}</div><div class="l">Bins checked</div></div>
-      <div class="stat g"><div class="n">${good}</div><div class="l">Good</div></div>
-      <div class="stat r"><div class="n">${short+miss}</div><div class="l">Out (short+missing)</div></div>
-      <div class="stat"><div class="n">${cases}/${eaches}</div><div class="l">Cases / eaches counted</div></div></div>
-      <div class="scroll" style="max-height:40vh"><table><thead><tr><th>Bin</th><th>Code</th><th>Counted</th><th>Result</th><th>When</th></tr></thead><tbody>${
-        rows.sort((a,b)=>(a.checkedAt||0)-(b.checkedAt||0)).map(r=>`<tr><td>${esc(r.bin)}</td><td>${esc(r.code)}</td>
-        <td>${r.status==='missing'?'missing':fmt(r.countedTotal)}</td><td><span class="badge ${'b-'+r.status}">${esc(r.status)}</span></td>
-        <td>${r.checkedAt?new Date(r.checkedAt).toLocaleTimeString():''}</td></tr>`).join('')}</tbody></table></div>`;
-    $('repMsg').textContent=qs.size+' reads';
-  }catch(e){$('repMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
-};
-$('repDay').value=todayStr();
 </script>
 </body>
 </html>
