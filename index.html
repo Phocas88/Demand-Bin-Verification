@@ -69,6 +69,14 @@
   .ok{background:var(--good-bg);color:var(--good);border:1px solid #b6dab8;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .hidden{display:none}
   #editModal{display:none}#editModal:not(.hidden){display:flex}
+  #listModal{display:none}#listModal:not(.hidden){display:flex}
+  .bigin{width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;font-size:20px;text-align:center}
+  .flbl{display:block;font-weight:700;font-size:13px;margin-bottom:4px}
+  .bigtog{display:flex;align-items:center;gap:10px}.bigtog input{width:24px;height:24px}
+  .navb{padding:14px;border:0;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer}.navb:disabled{opacity:.45}
+  .cardbox{padding:14px;border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px}
+  .cardbox.good{background:var(--good-bg)}.cardbox.short,.cardbox.missing{background:var(--red-bg)}.cardbox.blocked{background:var(--purple-bg)}
+  .listrow{padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer}.listrow:active{background:#f4f7fb}
   @media(max-width:640px){.line .info{min-width:100%}.tot{min-width:0}}
 </style>
 </head>
@@ -128,8 +136,8 @@
   <section id="view-check" class="view hidden">
     <div class="panel"><div class="row-f"><h2 style="margin:0">My bin checks</h2><div class="grow"></div>
       <button class="act" id="loadMine">Load my list</button></div>
-      <div class="cards" id="myCards"></div></div>
-    <div class="panel" style="padding:0"><div class="scroll" style="max-height:70vh;border:0" id="myList"><div class="empty">Press “Load my list”.</div></div></div>
+      <div id="myProgress"></div></div>
+    <div class="panel" id="cardPanel"><div class="empty">Press the button above to load your list.</div></div>
   </section>
 
   <!-- DASHBOARD -->
@@ -197,6 +205,14 @@
       <select class="in" id="emOutcome"><option value="auto">Auto (good / short by count)</option><option value="missing">Missing</option><option value="blocked">Blocked</option></select></div>
     <div class="row-f"><label>Note</label><input class="in" id="emNote" style="flex:1;min-width:170px"></div>
     <div class="row-f"><button class="act" id="emSave">Save</button><button class="ghost act" id="emCancel">Cancel</button><span id="emMsg" class="note"></span></div>
+  </div>
+</div>
+
+<!-- CHECKER JUMP LIST -->
+<div id="listModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:flex-start;justify-content:center">
+  <div class="panel" style="max-width:480px;width:94%;margin:5vh 0;max-height:86vh;overflow:auto">
+    <div class="row-f"><h2 style="margin:0">All my lines</h2><div class="grow"></div><button class="ghost act" id="listClose">Close</button></div>
+    <div id="listBody"></div>
   </div>
 </div>
 
@@ -476,59 +492,86 @@ async function writeHistory(map){const keys=Object.keys(map),SIZE=3000,chunks=[]
   const b=writeBatch(db);chunks.forEach((o,i)=>b.set(doc(db,'history','chunk_'+i),{data:o}));b.set(doc(db,'history','index'),{chunkCount:chunks.length,keys:keys.length,updatedAt:Date.now()});await b.commit();addWrites(chunks.length+1);}
 
 /* ================= CHECKER ================= */
-let myTasks=[];
-$('loadMine').onclick=async()=>{$('myList').innerHTML='<div class="empty">loading…</div>';const day=todayStr();
+let myTasks=[],cur=0;
+$('loadMine').onclick=async()=>{$('cardPanel').innerHTML='<div class="empty">loading…</div>';const day=todayStr();
   try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('assignedTo','==',ME),where('archived','==',false)));addReads(qs.size||1);
-    myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));renderMine();
-  }catch(e){$('myList').innerHTML='<div class="err" style="margin:14px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
+    myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
+    cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;renderMine();
+  }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
 };
 function statusClass(s){return s==='good'?'good':(s==='short'||s==='missing')?s:(s==='blocked'?'blocked':'');}
 function renderMine(){
-  const done=myTasks.filter(t=>t.status!=='open').length,out=myTasks.filter(t=>['short','missing','blocked'].includes(t.status)).length;
-  $('myCards').innerHTML=`<div class="stat"><div class="n">${myTasks.length}</div><div class="l">Assigned</div></div>
-    <div class="stat g"><div class="n">${done}</div><div class="l">Done</div></div>
-    <div class="stat r"><div class="n">${out}</div><div class="l">Out / blocked</div></div>`;
-  if(!myTasks.length){$('myList').innerHTML='<div class="empty">Nothing assigned to “'+esc(ME)+'” today.</div>';return;}
-  let html='',prev=null;
-  myTasks.forEach((t,i)=>{
-    if(t.bin!==prev){prev=t.bin;html+=`<div class="binhead">📍 ${esc(t.bin)}</div>`;}
-    const known=t.pack>1;
-    html+=`<div class="line ${statusClass(t.status)}" id="ln_${i}">
-      <div class="info">
-        <div class="nm"><span class="badge ${'b-'+t.status}">${t.status==='open'?(t.statusFlag||'CHECK'):t.status.toUpperCase()}</span>${esc(t.code)} <b>[${esc(t.name)}]</b></div>
-        <div class="sub" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap">
-          <span><b>Apprise:</b> ${t.systemEach} <span class="ea">each</span>${t.systemCase>0?` &nbsp;|&nbsp; ${t.systemCase} <span class="ea">Case${t.pack}</span>`:''}</span>
-          <span class="req">Demand: ${fmt(t.demand)}</span></div>
-        <div class="inputs"><span><b>Count:</b></span>
-          <input class="qin" id="e_${i}" type="number" inputmode="numeric" min="0" value="${t.countedEach||''}" oninput="window.recalc(${i})"> <span class="ea">each</span>
-          &nbsp;|&nbsp; <input class="qin" id="c_${i}" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" oninput="window.recalc(${i})">
-          ${known?`<span class="ea">Case${t.pack}</span>`:`× <input class="qin" id="pc_${i}" type="number" inputmode="numeric" min="0" placeholder="per case" value="${PACKS[t.code]>1?PACKS[t.code]:''}" oninput="window.recalc(${i})"> <span class="ea" title="how many eaches in one case — read it off the box; we'll remember it">per case</span>`}
-          <label class="miss" style="margin-left:auto"><span>MISSING</span><input type="checkbox" id="m_${i}" onchange="window.recalc(${i})" ${t.status==='missing'?'checked':''}></label></div>
-        <div class="inputs"><span><b>Notes:</b></span><input class="in" id="n_${i}" value="${esc(t.note||'')}" style="flex:1;min-width:160px"></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div class="tot" id="t_${i}">—</div>
-        <button class="submitbtn" style="background:#2e7d32" onclick="window.saveOne(${i})">Save</button>
-        <button class="submitbtn" style="background:#e07b00" onclick="window.editOne(${i})">Edit</button>
-        <button class="submitbtn" style="background:#7b3ff2" onclick="window.blockOne(${i})">Blocked</button>
-        <div class="saved hidden" id="ok_${i}">saved ✓</div></div></div>`;
-  });
-  $('myList').innerHTML=html;myTasks.forEach((t,i)=>{window.recalc(i);if(t.status!=='open')lockLine(i,true);});
+  if(!myTasks.length){$('myProgress').innerHTML='';$('cardPanel').innerHTML='<div class="empty">Nothing assigned to \u201c'+esc(ME)+'\u201d today.</div>';return;}
+  showCard(cur);
 }
-function lockLine(i,l){['e_'+i,'c_'+i,'pc_'+i,'m_'+i,'n_'+i].forEach(id=>{const el=$(id);if(el)el.disabled=l;});}
-window.editOne=i=>{lockLine(i,false);$('e_'+i)&&$('e_'+i).focus();};
-window.recalc=function(i){const t=myTasks[i];const miss=$('m_'+i).checked;
-  const pack=t.pack>1?t.pack:(Number($('pc_'+i)?.value)||0);
-  const cases=Number($('c_'+i)?.value)||0;const eaches=Number($('e_'+i)?.value)||0;
-  const total=miss?0:eaches+cases*pack;const st=miss?'missing':(total<t.demand?'short':'good');
-  $('t_'+i).textContent=miss?'MISSING':((cases>0&&pack<1)?'⚠ per case?':total);
-  if(t.status!=='blocked'){const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(st);}
-  ['c_'+i,'e_'+i,'pc_'+i].forEach(id=>{if($(id))$(id).disabled=miss;});t._pending={cases,eaches,total,pack};};
-async function commitLine(i,force){const t=myTasks[i];const miss=$('m_'+i)?.checked;
-  const known=t.pack>1;const pack=known?t.pack:(Number($('pc_'+i)?.value)||0);
-  const cases=Number($('c_'+i)?.value)||0;const eaches=Number($('e_'+i)?.value)||0;
+function progressHtml(){const done=myTasks.filter(t=>t.status!=='open').length;const pct=Math.round(100*done/myTasks.length);
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">
+    <b>Line ${cur+1} of ${myTasks.length}</b>
+    <div class="barwrap" style="flex:1;min-width:110px"><div class="bar" style="width:${pct}%"></div></div>
+    <span class="note" style="white-space:nowrap">${done} done</span>
+    <button class="ghost act" id="listBtn" style="padding:6px 12px">\u2630 All lines</button></div>`;}
+function showCard(i){
+  cur=Math.max(0,Math.min(i,myTasks.length-1));const t=myTasks[cur];
+  $('myProgress').innerHTML=progressHtml();$('listBtn').onclick=openList;
+  const known=t.pack>1;const showCases=known||t.systemCase>0||t._addCases;
+  const badge=t.status==='open'?(t.statusFlag||'NEW'):t.status.toUpperCase();
+  $('cardPanel').innerHTML=`
+    <div class="binhead" style="border-radius:8px 8px 0 0;position:static">\ud83d\udccd ${esc(t.bin)}</div>
+    <div class="cardbox ${statusClass(t.status)}">
+      <div style="font-size:17px;font-weight:800"><span class="badge b-${t.status}">${badge}</span> ${esc(t.code)}</div>
+      <div class="note" style="font-size:13px;margin:2px 0 10px">${esc(t.name||'')}</div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;margin-bottom:14px">
+        <span><b>Apprise:</b> ${t.systemEach} <span class="ea">each</span>${t.systemCase>0?' | '+t.systemCase+' <span class="ea">Case'+t.pack+'</span>':''}</span>
+        <span class="req">Demand: ${fmt(t.demand)}</span></div>
+      <label class="flbl">Count \u2014 each</label>
+      <input class="bigin" id="cEach" type="number" inputmode="numeric" min="0" value="${t.countedEach||''}">
+      ${showCases?`
+        <label class="flbl" style="margin-top:14px">${known?('Cases \u2014 \u00d7 '+t.pack+' each'):'Cases'}</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input class="bigin" id="cCase" type="number" inputmode="numeric" min="0" value="${t.countedCase||''}" style="flex:1">
+          ${known?'':`<span style="font-size:18px">\u00d7</span><input class="bigin" id="cPer" type="number" inputmode="numeric" min="0" placeholder="per case" value="${PACKS[t.code]>1?PACKS[t.code]:''}" style="flex:1">`}
+        </div>
+        ${known?'':'<div class="note">How many eaches in one case? Read it off the box \u2014 saved for next time.</div>'}
+      `:`<button class="ghost act" id="addCases" style="margin-top:12px;width:100%">\uff0b Found cases here? Add them</button>`}
+      <label class="bigtog" style="margin-top:14px"><input type="checkbox" id="cMiss" ${t.status==='missing'?'checked':''}> <span style="color:var(--red);font-weight:800">Nothing here \u2014 MISSING</span></label>
+      <label class="flbl" style="margin-top:14px">Notes</label>
+      <input class="in" id="cNote" value="${esc(t.note||'')}" style="width:100%;padding:12px">
+      <div style="margin-top:14px;font-size:16px"><b>Counted total:</b> <span id="cTot" style="font-weight:800">\u2014</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="navb" id="backBtn" ${cur===0?'disabled':''} style="background:#fff;color:var(--navy);border:1px solid var(--navy)">\u2039 Back</button>
+      <button class="navb" id="blockBtn" style="background:#7b3ff2;color:#fff">Blocked</button>
+      <button class="navb" id="saveBtn" style="background:#2e7d32;color:#fff;flex:1">Save &amp; Next \u203a</button>
+    </div>
+    <div style="text-align:center;margin-top:8px"><button class="ghost act" id="skipBtn" style="padding:7px 16px">Skip without saving \u203a</button></div>`;
+  ['cEach','cCase','cPer','cMiss'].forEach(id=>{const el=$(id);if(el)el.oninput=el.onchange=recalcCard;});
+  if($('addCases'))$('addCases').onclick=()=>{t._addCases=true;showCard(cur);};
+  $('backBtn').onclick=()=>showCard(cur-1);
+  $('skipBtn').onclick=()=>advance();
+  $('saveBtn').onclick=()=>commitCard(null);
+  $('blockBtn').onclick=()=>commitCard('blocked');
+  recalcCard();
+}
+function recalcCard(){const t=myTasks[cur];const miss=$('cMiss')?.checked;
+  const known=t.pack>1;const pack=known?t.pack:(Number($('cPer')?.value)||0);
+  const cases=Number($('cCase')?.value)||0;const eaches=Number($('cEach')?.value)||0;
+  const total=miss?0:eaches+cases*pack;
+  $('cTot').textContent=miss?'MISSING':((cases>0&&pack<1)?'\u26a0 enter \u201cper case\u201d':total);
+  const box=$('cardPanel').querySelector('.cardbox');if(box&&t.status!=='blocked'){box.classList.remove('good','short','missing','blocked');box.classList.add(miss?'missing':(total<t.demand?'short':'good'));}
+  ['cEach','cCase','cPer'].forEach(id=>{if($(id))$(id).disabled=miss;});}
+function advance(){if(cur<myTasks.length-1)showCard(cur+1);else doneScreen();}
+function doneScreen(){const done=myTasks.filter(t=>t.status!=='open').length;
+  $('myProgress').innerHTML=progressHtml();$('listBtn').onclick=openList;
+  $('cardPanel').innerHTML=`<div class="empty"><div style="font-size:18px;font-weight:800;color:var(--good)">End of list \ud83c\udf89</div>
+    <div class="note">${done} of ${myTasks.length} done.${done<myTasks.length?' Use \u201cAll lines\u201d to finish any still open.':''}</div>
+    <button class="act" id="backToList" style="margin-top:10px">Review all lines</button></div>`;
+  $('backToList').onclick=openList;}
+async function commitCard(force){const t=myTasks[cur];const miss=$('cMiss')?.checked;
+  const known=t.pack>1;const pack=known?t.pack:(Number($('cPer')?.value)||0);
+  const cases=Number($('cCase')?.value)||0;const eaches=Number($('cEach')?.value)||0;
+  if(!force&&!miss&&cases>0&&pack<1){alert('Enter how many per case (read it off the box).');return;}
   const total=(force==='blocked'||miss)?0:eaches+cases*pack;
-  const st=force||(miss?'missing':(total<t.demand?'short':'good'));const note=$('n_'+i)?.value||'';const prev=t.status;
+  const st=force||(miss?'missing':(total<t.demand?'short':'good'));const note=$('cNote')?.value||'';const prev=t.status;
   const newPack=(pack>1&&!known)?pack:t.pack;
   try{
     await updateDoc(doc(db,'tasks',t.id),{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});addWrites(1);
@@ -537,13 +580,15 @@ async function commitLine(i,force){const t=myTasks[i];const miss=$('m_'+i)?.chec
     if(prev!=='open'&&prev!==st)inc[prev]=increment(-1);inc.eaches=increment(eaches-(t.countedEach||0));inc.cases=increment(cases-(t.countedCase||0));
     await setDoc(doc(db,'stats',t.day+'__'+ME),inc,{merge:true});addWrites(1);
     Object.assign(t,{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});
-    const ln=$('ln_'+i);ln.classList.remove('good','short','missing','blocked');ln.classList.add(statusClass(st));
-    ln.querySelector('.badge').className='badge b-'+st;ln.querySelector('.badge').textContent=st.toUpperCase();
-    $('ok_'+i).classList.remove('hidden');setTimeout(()=>$('ok_'+i).classList.add('hidden'),1500);lockLine(i,true);
-    const done=myTasks.filter(x=>x.status!=='open').length,out=myTasks.filter(x=>['short','missing','blocked'].includes(x.status)).length;
-    $('myCards').children[1].querySelector('.n').textContent=done;$('myCards').children[2].querySelector('.n').textContent=out;
+    advance();
   }catch(e){alert('Save failed: '+(e.code||e.message));}}
-window.saveOne=i=>commitLine(i);window.blockOne=i=>commitLine(i,'blocked');
+function openList(){const body=$('listBody');let prev=null,h='';
+  myTasks.forEach((t,i)=>{if(t.bin!==prev){prev=t.bin;h+=`<div class="binhead" style="position:static;border-radius:6px;margin-top:6px">\ud83d\udccd ${esc(t.bin)}</div>`;}
+    h+=`<div class="listrow" data-i="${i}"><span class="badge b-${t.status}">${t.status==='open'?'\u2022':esc(String(t.status)[0].toUpperCase())}</span> <b>${esc(t.code)}</b> <span class="note">${esc(t.name||'')}</span></div>`;});
+  body.innerHTML=h;body.querySelectorAll('.listrow').forEach(r=>r.onclick=()=>{cur=+r.dataset.i;$('listModal').classList.add('hidden');showCard(cur);});
+  $('listModal').classList.remove('hidden');}
+$('listClose').onclick=()=>$('listModal').classList.add('hidden');
+$('listModal').addEventListener('click',e=>{if(e.target===$('listModal'))$('listModal').classList.add('hidden');});
 
 /* ================= DASHBOARD ================= */
 $('refreshDash').onclick=loadDash;
