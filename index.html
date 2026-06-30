@@ -68,6 +68,7 @@
   .err{background:var(--red-bg);color:var(--red);border:1px solid #f1b0b0;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .ok{background:var(--good-bg);color:var(--good);border:1px solid #b6dab8;border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .hidden{display:none}
+  #editModal{display:none}#editModal:not(.hidden){display:flex}
   @media(max-width:640px){.line .info{min-width:100%}.tot{min-width:0}}
 </style>
 </head>
@@ -141,11 +142,11 @@
     </div>
     <div class="panel">
       <div class="row-f"><h2 style="margin:0">Bin detail, product totals &amp; consolidation</h2><div class="grow"></div>
-        <button class="act" id="loadDetail">Load bin detail</button>
+        <button class="act" id="loadDetail">Load team entries</button>
         <button class="ghost act" id="appriseBtn">Apprise export (incorrect bins)</button>
         <span id="detailMsg" class="note"></span></div>
       <div class="nav" id="detailTabs" style="margin:6px 0"></div>
-      <div id="detailOut"><div class="empty">Press “Load bin detail” (one read) to populate product totals, the bin grid, and consolidation.</div></div>
+      <div id="detailOut"><div class="empty">Press “Load team entries” (one read) to review what's been verified, edit lines, print a count sheet, and see product totals &amp; consolidation.</div></div>
     </div>
     <div class="panel">
       <div class="row-f"><h2 style="margin:0">End of day</h2><div class="grow"></div>
@@ -186,7 +187,7 @@
 </div>
 
 <!-- MANAGER EDIT MODAL -->
-<div id="editModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center;display:flex">
+<div id="editModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center">
   <div class="panel" style="max-width:430px;width:92%;margin:0">
     <h2 id="emTitle">Edit line</h2>
     <div class="note" id="emSub"></div>
@@ -579,13 +580,23 @@ function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<d
         return `<tr><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.sys)}</td>
         <td style="font-weight:800;color:${cov?'#2e7d32':'#c62828'}">${fmt(o.located)}</td><td>${o.checked}/${o.bins.length}</td>
         <td>${cov?'<span class="badge b-good">COVERED</span>':(part?'<span class="badge b-stale">IN PROGRESS</span>':'<span class="badge b-missing">SHORT '+fmt(o.demand-o.located)+'</span>')}</td></tr>`;}).join('')}</tbody></table></div>`;
-  }else if(detailTab==='bins'){const d=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));window._grid=d;
-    host.innerHTML=`<div class="note">Click <b>Edit</b> on any line to correct a count or status.</div><div class="scroll"><table><thead><tr><th>Bin</th><th>Div</th><th>Code</th><th>Apprise</th><th>Counted</th><th>Status</th><th>By</th><th></th></tr></thead><tbody>${
+  }else if(detailTab==='bins'){
+    const all=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
+    const f=window._gridFilter||'all';
+    const d=all.filter(t=> f==='all'?true : f==='verified'?(t.status!=='open') : f==='open'?(t.status==='open') : ['short','missing','blocked'].includes(t.status));
+    window._grid=d;
+    const fb=(id,lbl,n)=>`<button class="${f===id?'on':''}" data-f="${id}" style="padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:8px;font-weight:700;font-size:12px;color:${f===id?'#fff':'var(--mut)'};${f===id?'background:var(--navy);border-color:var(--navy)':''};cursor:pointer">${lbl} ${n}</button>`;
+    const cV=all.filter(t=>t.status!=='open').length,cO=all.filter(t=>t.status==='open').length,cX=all.filter(t=>['short','missing','blocked'].includes(t.status)).length;
+    host.innerHTML=`<div class="row-f" style="gap:6px"><div style="display:flex;gap:6px;flex-wrap:wrap">${fb('all','All',all.length)}${fb('verified','Verified',cV)}${fb('open','Not counted',cO)}${fb('out','Out',cX)}</div><div class="grow"></div><button class="ghost act" id="printList">🖨 Print count sheet</button></div>
+      <div class="note">Open up what the team entered and <b>Edit</b> to correct it — or filter to <b>Not counted</b> and key in numbers from a paper sheet.</div>
+      <div class="scroll"><table><thead><tr><th>Bin</th><th>Div</th><th>Code</th><th>Apprise</th><th>Counted</th><th>Status</th><th>By</th><th></th></tr></thead><tbody>${
       d.map((t,i)=>{const isC=t.pack>1||t.systemCase>0;return `<tr><td>${esc(t.bin)}</td><td>${esc(t.division||'')}</td><td><b>${esc(t.code)}</b></td>
       <td>${t.systemEach} ea${isC?' | '+t.systemCase+' c'+t.pack:''}</td>
       <td>${t.status==='open'?'—':(t.status==='missing'?'<b style="color:#c62828">missing</b>':t.status==='blocked'?'<b style="color:#6b2fd0">blocked</b>':(t.countedEach||0)+' ea'+(isC?' | '+(t.countedCase||0)+' c'+t.pack:''))}</td>
-      <td><span class="badge b-${t.status}">${esc(t.status)}</span>${t.editedBy?' <span class="note">✎</span>':''}</td><td>${esc(t.checkedBy||'')}</td>
-      <td><button class="ghost act" style="padding:4px 9px" onclick="window.mgrEdit(${i})">Edit</button></td></tr>`;}).join('')}</tbody></table></div>`;
+      <td><span class="badge b-${t.status}">${esc(t.status)}</span>${t.editedBy?' <span class="note" title="edited by '+esc(t.editedBy)+'">✎</span>':''}</td><td>${esc(t.checkedBy||'')}</td>
+      <td><button class="ghost act" style="padding:4px 9px" onclick="window.mgrEdit(${i})">Edit</button></td></tr>`;}).join('')||'<tr><td colspan="8" class="empty">Nothing in this filter.</td></tr>'}</tbody></table></div>`;
+    host.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{window._gridFilter=b.dataset.f;renderDetail();});
+    $('printList').onclick=()=>printCountSheet(d);
   }else if(detailTab==='cons'){const r=rollup();const multi=Object.values(r).filter(o=>o.bins.length>1)
       .map(o=>({...o,partials:o.bins.filter(b=>(b.systemTotal||0)>0&&(b.systemTotal||0)<(b.pack||1)*2).length}))
       .sort((a,b)=>b.bins.length-a.bins.length||b.partials-a.partials);
@@ -602,6 +613,28 @@ function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<d
       <td>${o.bins.filter(b=>['short','missing','blocked'].includes(b.status)).map(b=>'<span class="pill">'+esc(b.bin)+' ('+b.status+')</span>').join(' ')}</td></tr>`).join('')
       ||'<tr><td colspan="5" class="empty">No outs. 🎉</td></tr>'}</tbody></table></div>`;
   }
+}
+/* printable paper count sheet for analog counting */
+function printCountSheet(list){
+  if(!list||!list.length){alert('Nothing to print in this filter.');return;}
+  const w=window.open('','_blank');
+  if(!w){alert('Allow pop-ups for this site to print the count sheet.');return;}
+  let prev=null,body='';
+  list.forEach(t=>{const isC=t.pack>1||t.systemCase>0;
+    if(t.bin!==prev){prev=t.bin;body+=`<tr class="bh"><td colspan="8">${esc(t.bin)}</td></tr>`;}
+    body+=`<tr><td>${esc(t.division||'')}</td><td><b>${esc(t.code)}</b><div class="nm">${esc(t.name||'')}</div></td>
+      <td>${t.systemEach} ea${isC?' | '+t.systemCase+' c'+t.pack:''}</td><td>${t.demand||''}</td>
+      <td class="w"></td><td class="w">${isC?'':'<span class=x>—</span>'}</td><td class="m"></td><td class="nt"></td></tr>`;});
+  w.document.write(`<html><head><title>Count Sheet ${todayStr()}</title><style>
+    body{font-family:Arial;font-size:12px;margin:14px;color:#111}h2{margin:0 0 2px}.sub{color:#555;font-size:11px;margin-bottom:8px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 6px;text-align:left;vertical-align:top}
+    th{background:#e8eef6;font-size:10px}.nm{font-size:9px;color:#555}.bh td{background:#f0f0f0;font-weight:800}
+    .w{width:55px}.m{width:30px}.nt{width:130px}.x{color:#aaa}
+    @media print{.noprint{display:none}}</style></head><body>
+    <h2>Bin Count Sheet</h2><div class="sub">${todayStr()} · ${list.length} lines · Counter: ____________</div>
+    <table><thead><tr><th>Div</th><th>Product</th><th>Apprise on-hand</th><th>Demand</th><th>Count each</th><th>Cases</th><th>Miss</th><th>Notes</th></tr></thead><tbody>${body}</tbody></table>
+    <button class="noprint" onclick="window.print()" style="margin-top:12px;padding:9px 16px;font-weight:700">Print</button></body></html>`);
+  w.document.close();
 }
 /* Apprise export — per-UOM negative/positive adjustments for incorrect bins */
 $('appriseBtn').onclick=()=>{
