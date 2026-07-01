@@ -271,6 +271,10 @@ function natcmp(a,b){const ka=natkey(a),kb=natkey(b);for(let i=0;i<Math.max(ka.l
 function col(row,names){const k=Object.keys(row);for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase()===w.toLowerCase());if(h)return h;}for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase().includes(w.toLowerCase()));if(h)return h;}return null;}
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(v){const n=Number(v);return(v===''||v==null||isNaN(n))?esc(v):n.toLocaleString();}
+function errMsg(e){const m=String((e&&(e.code||e.message))||e||'');
+  if(m.includes('permission-denied')||m.includes('Missing or insufficient'))return 'Permission denied \u2014 your Firestore security rules don\u2019t allow the \u201cbundles\u201d collection yet. In the Firebase console open Firestore \u2192 Rules, paste the firestore.rules file, and press Publish. Then try again.';
+  if(m.includes('index'))return 'This needs a one-time index \u2014 open your browser console (F12), click the link Firestore prints, create the index, wait ~1 min, then retry.';
+  return esc(m);}
 function packSize(um){const m=String(um).match(/(\d+)/);return /case/i.test(um)&&m?parseInt(m[1],10):1;}
 function levelOf(bin){const m=String(bin).match(/(\d+)-(\d+)-(\d+)/);if(m)return parseInt(m[3],10);const m2=String(bin).match(/-(\d+)\s*$/);if(m2)return parseInt(m2[1],10);return null;}
 function parseLevels(spec){spec=String(spec).trim();if(!spec)return null;const set=new Set();spec.split(',').forEach(part=>{const m=part.trim().match(/^(\d+)\s*-\s*(\d+)$/);if(m){for(let i=+m[1];i<=+m[2];i++)set.add(i);}else if(/^\d+$/.test(part.trim()))set.add(+part.trim());});return set.size?set:null;}
@@ -516,7 +520,7 @@ $('btnPublish').onclick=async()=>{
     sb.set(doc(db,'meta','current'),{day,division:computed.division,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});ACTIVE={day,division:computed.division,window:computed.window};
     await sb.commit();addWrites(Object.keys(per).length+1);
     $('publishMsg').innerHTML=`<span class="saved">Published ${w} cards to ${Object.keys(per).length} members for the ${computed.window}-day window.</span>`;
-  }catch(e){$('publishMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+  }catch(e){$('publishMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
   $('btnPublish').disabled=false;
 };
 
@@ -542,7 +546,7 @@ async function loadMine(force){
   try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('member','==',ME),where('archived','==',false)));addReads(qs.size||1);
     myTasks=flattenBundles(qs.docs).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
     myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;saveMyCache();renderMine();note('synced ('+(qs.size)+' read)');
-  }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
+  }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+errMsg(e)+'</div>';}
 }
 function note(msg){const el=document.createElement('span');el.className='note';el.style.marginLeft='8px';el.textContent=msg;const h=$('myProgress');if(h){const b=h.querySelector('#listBtn');if(b)b.after(el);}}
 function statusClass(s){return s==='good'?'good':(s==='short'||s==='missing')?s:(s==='blocked'?'blocked':'');}
@@ -674,7 +678,7 @@ async function loadDetail(force){if(force)await refreshActive();const day=active
   $('detailMsg').textContent='getting latest from server…';
   try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
     detail=flattenBundles(qs.docs);saveDetailCache();$('detailMsg').textContent=`${detail.length} cards · synced (${qs.size} reads)`;renderDetailTabs();renderDetail();
-  }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link)':'')+'</span>';}
+  }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 }
 function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
   $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
@@ -774,7 +778,7 @@ $('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory an
     await writeHistory(history);
     const ids=qs.docs.map(d=>d.id);for(let i=0;i<ids.length;i+=400){const b=writeBatch(db);ids.slice(i,i+400).forEach(id=>b.update(doc(db,'bundles',id),{archived:true}));await b.commit();addWrites(Math.min(400,ids.length-i));}
     $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards. Memory now '+Object.keys(history).length+' keys.</span>';
-  }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+  }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 };
 
 /* manager edit of any line */
@@ -834,7 +838,7 @@ async function runReport(){const from=$('repFrom').value,to=$('repTo').value;if(
     repData.offs.sort((a,b)=>(a.day<b.day?-1:a.day>b.day?1:0)||natcmp(a.bin,b.bin));
     $('repMsg').textContent=`${repData.stats.length} member-days \u00b7 ${repData.offs.length} off bins \u00b7 ${qs.size+offReads} reads`+(repData.offErr?' \u00b7 off-bins need a 1-time index (see console)':'');
     renderReport();
-  }catch(e){$('repMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' \u2014 open the console link once to create the index, then retry.':'')+'</span>';}
+  }catch(e){$('repMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 }
 function aggReport(stats){const byDay={},byMember={},tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0};
   stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;
@@ -910,7 +914,7 @@ $('rebBtn')&&($('rebBtn').onclick=async()=>{
       if(t.status&&t.status!=='open'){const m=t.checkedBy||t.assignedTo;if(m){const x=P(m);x.checked++;if(x[t.status]!==undefined)x[t.status]++;x.eaches+=t.countedEach||0;x.cases+=t.countedCase||0;}}});
     const list=Object.values(per),b=writeBatch(db);list.forEach(x=>b.set(doc(db,'stats',day+'__'+x.member),{...x,updatedAt:Date.now()}));await b.commit();addWrites(list.length||1);
     $('rebMsg').innerHTML='<span class="saved">Rebuilt '+list.length+' counter(s) for '+day+' \u2014 re-run the report.</span>';
-  }catch(e){$('rebMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+  }catch(e){$('rebMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 });
 /* ================= ARCHIVE SEARCH ================= */
 $('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();const day=$('archDay').value;if(!val){alert('Enter a value.');return;}if(!day){alert('Pick a day to search (keeps reads low).');return;}$('archMsg').textContent='searching…';
@@ -921,7 +925,7 @@ $('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVa
       <td>${esc(t.checkedBy||'')}</td><td>${t.checkedAt?new Date(t.checkedAt).toLocaleString():''}</td><td>${esc(t.note||'')}</td></tr>`).join('')
       ||'<tr><td colspan="9" class="empty">No records.</td></tr>';
     $('archMsg').textContent=rows.length+' records ('+qs.size+' reads)';
-  }catch(e){$('archMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+  }catch(e){$('archMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 };
 </script>
 </body>
