@@ -172,6 +172,16 @@
         <button class="act" id="archiveDay">Save to memory &amp; archive</button><span id="archiveMsg" class="note"></span></div>
       <p class="note">Folds that run's verified counts into skip-memory and closes it for the team. Only the chosen day/division is archived — every other active run keeps going.</p>
     </div>
+    <div class="panel">
+      <div class="row-f"><h2 style="margin:0">Fix demand on a live run</h2></div>
+      <p class="note">If a run was built with the wrong demand column (e.g. dates instead of quantities), re-drop that division's demand report and pick the correct column. Counts already entered are kept — each line's status just recomputes against the corrected demand.</p>
+      <div class="row-f"><select class="in" id="fixDiv"></select>
+        <input class="in" type="date" id="fixDate" style="width:160px">
+        <input type="file" id="fixFile" accept=".csv,.xlsx,.xls,.xlsm"></div>
+      <div class="row-f"><label>Demand column</label><select class="in" id="fixCol" style="min-width:170px"></select>
+        <span id="fixPreview" class="note"></span></div>
+      <div class="row-f"><button class="act" id="fixApply">Apply demand fix</button><span id="fixMsg" class="note"></span></div>
+    </div>
   </section>
 
   <!-- SETTINGS -->
@@ -296,7 +306,7 @@ function firstSheet(wb,test){for(const n of wb.SheetNames){const j=XLSX.utils.sh
 function flattenBundles(docs){const out=[];docs.forEach(d=>{const data=d.data()||{};const tk=data.tasks||{};for(const k in tk){out.push({...tk[k],_docId:d.id,_key:k,day:data.day,member:data.member,assignedTo:data.member});}});return out;}
 
 /* ---------- session + config ---------- */
-let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null,PACKS={},ACTIVE=null;
+let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null,PACKS={},ACTIVE=null,fixDemRows=null;
 const BOOTSTRAP='1988';
 function defaultConfig(){return {users:[],recheckDays:7,divisions:[
   {code:'GT',name:'TAG',special:'GTMissing, Replenshorts, GTDM, GTInvest'},
@@ -395,7 +405,7 @@ function renderDivisions(){const ds=CONFIG.divisions||[];
   document.querySelectorAll('.drm').forEach(x=>x.onclick=e=>{CONFIG.divisions.splice(+e.target.dataset.i,1);renderDivisions();});
 }
 $('addDiv').onclick=()=>{CONFIG.divisions=CONFIG.divisions||[];CONFIG.divisions.push({code:'',name:'',special:''});renderDivisions();};
-function fillDivisions(){const opts=(CONFIG.divisions||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');if($('divSel'))$('divSel').innerHTML=opts;if($('archiveDiv'))$('archiveDiv').innerHTML='<option value="">all divisions</option>'+opts;}
+function fillDivisions(){const opts=(CONFIG.divisions||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');if($('divSel'))$('divSel').innerHTML=opts;if($('archiveDiv'))$('archiveDiv').innerHTML='<option value="">all divisions</option>'+opts;if($('fixDiv'))$('fixDiv').innerHTML=opts;if($('fixDate')&&!$('fixDate').value)$('fixDate').value=todayStr();}
 $('saveSettings').onclick=async()=>{
   CONFIG.recheckDays=Number($('setWindow').value)||7;CONFIG.divisions=(CONFIG.divisions||[]).filter(d=>d.code);
   const pins=(CONFIG.users||[]).filter(u=>u.name&&u.pin).map(u=>u.pin);
@@ -837,6 +847,47 @@ $('archiveDay').onclick=async()=>{
     $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards from '+day+(divf?(' / '+divf):'')+'. Skip-memory now '+Object.keys(history).length+' keys. Other runs untouched.</span>';
   }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 };
+/* ---- Fix demand on an already-published run (keeps counts, recomputes status) ---- */
+function fillFixCols(){if(!fixDemRows)return;const opts=Object.keys(fixDemRows[0]);const pref=col(fixDemRows[0],['Demand Qty','Demand']);
+  $('fixCol').innerHTML=opts.map(o=>`<option ${o===pref?'selected':''}>${esc(o)}</option>`).join('');showFixPreview();}
+function showFixPreview(){if(!fixDemRows||!$('fixCol').value){$('fixPreview').textContent='';return;}const c=$('fixCol').value;
+  const nums=fixDemRows.slice(0,80).map(r=>Number(r[c])).filter(v=>!isNaN(v)&&v!==0);
+  const sample=fixDemRows.slice(0,5).map(r=>String(r[c])).join(', ');
+  const med=nums.length?nums.slice().sort((a,b)=>a-b)[Math.floor(nums.length/2)]:0;
+  const dateLike=med>40000&&med<60000;
+  $('fixPreview').innerHTML='sample: '+esc(sample)+(dateLike?' &mdash; <b style="color:#c62828">\u26a0 these look like DATES, not quantities \u2014 pick another column</b>':' &mdash; <span style="color:#1b7f3b">\u2713 looks like quantities</span>');}
+$('fixFile')&&($('fixFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('fixMsg').textContent='reading file\u2026';try{const wb=await readFile(f);fixDemRows=firstSheet(wb,r=>col(r,['Product Code']));if(!fixDemRows){alert('No Product Code column found in that file.');return;}fillFixCols();$('fixMsg').textContent=f.name+' loaded ('+fixDemRows.length+' rows).';}catch(err){$('fixMsg').innerHTML='<span style="color:#c62828">'+errMsg(err)+'</span>';}});
+$('fixCol')&&($('fixCol').onchange=showFixPreview);
+$('fixApply')&&($('fixApply').onclick=async()=>{
+  const day=$('fixDate').value,division=$('fixDiv').value,colName=$('fixCol').value;
+  if(!day||!division){alert('Pick the division and date of the run.');return;}
+  if(!fixDemRows||!colName){alert('Drop the demand file and pick the demand column.');return;}
+  if(!confirm('Update demand for the '+division+' run on '+day+' using column \u201c'+colName+'\u201d? Counts stay; each line\u2019s status recomputes.'))return;
+  $('fixMsg').textContent='reading the run\u2026';
+  try{
+    const dCode=col(fixDemRows[0],['Product Code']);const demMap={};
+    fixDemRows.forEach(r=>{const c=String(r[dCode]).trim();if(c)demMap[c]=Number(r[colName])||0;});
+    const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day)));addReads(qs.size||1);
+    const docs=qs.docs.map(d=>({id:d.id,data:d.data()}));
+    const fix=docs.filter(d=>(d.data.division||'')===division);
+    if(!fix.length){$('fixMsg').textContent='No '+division+' run found on '+day+'.';return;}
+    let changed=0,notfound=0;
+    for(const d of fix){const tk=d.data.tasks||{};const nt={};
+      for(const key in tk){const t={...tk[key]};
+        if(t.code in demMap)t.demand=demMap[t.code];else notfound++;
+        if(t.status==='good'||t.status==='short')t.status=(Number(t.countedTotal||0)>=Number(t.demand||0))?'good':'short';
+        nt[key]=t;changed++;}
+      d.data.tasks=nt;
+      await setDoc(doc(db,'bundles',d.id),{...d.data,updatedAt:Date.now()});addWrites(1);
+    }
+    // recompute that day's stats from the (now corrected) in-memory set
+    const per={},P=m=>per[m]=per[m]||{day,member:m,assigned:0,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0};
+    docs.forEach(d=>{const dt=d.data,m=dt.member,tk=dt.tasks||{};for(const key in tk){const t=tk[key];const s=P(m);s.assigned++;if(t.status&&t.status!=='open'){s.checked++;if(s[t.status]!==undefined)s[t.status]++;s.eaches+=t.countedEach||0;s.cases+=t.countedCase||0;}}});
+    const list=Object.values(per),b=writeBatch(db);list.forEach(x=>b.set(doc(db,'stats',day+'__'+x.member),{...x,updatedAt:Date.now()}));await b.commit();addWrites(list.length||1);
+    detail=null;try{localStorage.removeItem('bv_detail_all');}catch(e){}
+    $('fixMsg').innerHTML='<span class="saved">Fixed demand on '+changed+' '+division+' lines for '+day+(notfound?(' ('+notfound+' codes weren\u2019t in the file, left as-is)'):'')+'. Stats recomputed. Press \u21bb Refresh here, and tell counters to tap \u21bb Get latest.</span>';
+  }catch(e){$('fixMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
+});
 
 /* manager edit of any line */
 let emIdx=-1;
