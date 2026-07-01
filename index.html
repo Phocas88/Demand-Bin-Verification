@@ -165,9 +165,12 @@
       <div id="detailOut"><div class="empty">Press “Load team entries” (one read) to review what's been verified, edit lines, print a count sheet, and see product totals &amp; consolidation.</div></div>
     </div>
     <div class="panel">
-      <div class="row-f"><h2 style="margin:0">End of day</h2><div class="grow"></div>
-        <button class="act" id="archiveDay">Save day to memory &amp; archive</button><span id="archiveMsg" class="note"></span></div>
-      <p class="note">Folds today's verified counts into the skip-memory (so tomorrow they're skipped) and closes the day.</p>
+      <div class="row-f"><h2 style="margin:0">Close a run</h2><div class="grow"></div></div>
+      <div class="row-f"><label>Archive the run for</label>
+        <input class="in" type="date" id="archiveDate" style="width:160px">
+        <select class="in" id="archiveDiv"><option value="">all divisions</option></select>
+        <button class="act" id="archiveDay">Save to memory &amp; archive</button><span id="archiveMsg" class="note"></span></div>
+      <p class="note">Folds that run's verified counts into skip-memory and closes it for the team. Only the chosen day/division is archived — every other active run keeps going.</p>
     </div>
   </section>
 
@@ -392,7 +395,7 @@ function renderDivisions(){const ds=CONFIG.divisions||[];
   document.querySelectorAll('.drm').forEach(x=>x.onclick=e=>{CONFIG.divisions.splice(+e.target.dataset.i,1);renderDivisions();});
 }
 $('addDiv').onclick=()=>{CONFIG.divisions=CONFIG.divisions||[];CONFIG.divisions.push({code:'',name:'',special:''});renderDivisions();};
-function fillDivisions(){const sel=$('divSel');if(!sel)return;sel.innerHTML=(CONFIG.divisions||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');}
+function fillDivisions(){const opts=(CONFIG.divisions||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');if($('divSel'))$('divSel').innerHTML=opts;if($('archiveDiv'))$('archiveDiv').innerHTML='<option value="">all divisions</option>'+opts;}
 $('saveSettings').onclick=async()=>{
   CONFIG.recheckDays=Number($('setWindow').value)||7;CONFIG.divisions=(CONFIG.divisions||[]).filter(d=>d.code);
   const pins=(CONFIG.users||[]).filter(u=>u.name&&u.pin).map(u=>u.pin);
@@ -540,18 +543,16 @@ async function writeHistory(map){const keys=Object.keys(map),SIZE=3000,chunks=[]
 
 /* ================= CHECKER ================= */
 let myTasks=[],cur=0,myLoaded=false;
-const myCacheKey=()=>`bv_my_${activeDay()}_${ME}`;
+const myCacheKey=()=>`bv_my_${ME}`;
 function saveMyCache(){try{localStorage.setItem(myCacheKey(),JSON.stringify(myTasks));}catch(e){}}
 $('loadMine').onclick=()=>loadMine(true);   // explicit "Get latest" = server read
 async function loadMine(force){
-  if(force)await refreshActive();
-  const day=activeDay();
   if(!force){
     if(myLoaded){renderMine();return;}                       // already in memory this session — 0 reads
     try{const c=localStorage.getItem(myCacheKey());if(c){myTasks=JSON.parse(c);myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;renderMine();note('from your device — press “Get latest” to sync');return;}}catch(e){}
   }
   $('cardPanel').innerHTML='<div class="empty">getting latest from server…</div>';
-  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('member','==',ME),where('archived','==',false)));addReads(qs.size||1);
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('member','==',ME),where('archived','==',false)));addReads(qs.size||1);
     myTasks=flattenBundles(qs.docs).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
     myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;saveMyCache();renderMine();note('synced ('+(qs.size)+' read)');
   }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+errMsg(e)+'</div>';}
@@ -652,28 +653,32 @@ function openList(){const body=$('listBody');let prev=null,h='';
 $('listClose').onclick=()=>$('listModal').classList.add('hidden');
 $('listModal').addEventListener('click',e=>{if(e.target===$('listModal'))$('listModal').classList.add('hidden');});
 
-/* ================= DASHBOARD ================= */
-$('refreshDash').onclick=loadDash;
-async function loadDash(){await refreshActive();const day=activeDay();
-  try{
-    setActiveLbl();$('windowPill').textContent=ACTIVE?((ACTIVE.window||'?')+'-day window · run '+day):'no active run';
-    const ms=await getDocs(query(collection(db,'stats'),where('day','==',day)));addReads(ms.size||1);
-    const stats=ms.docs.map(d=>d.data());const tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
-    stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;});
-    $('dashCards').innerHTML=`<div class="stat"><div class="n">${tot.assigned}</div><div class="l">Assigned</div></div>
-      <div class="stat"><div class="n">${tot.checked}</div><div class="l">Checked</div></div>
-      <div class="stat g"><div class="n">${tot.good}</div><div class="l">Good</div></div>
-      <div class="stat r"><div class="n">${tot.short}</div><div class="l">Short</div></div>
-      <div class="stat r"><div class="n">${tot.missing}</div><div class="l">Missing</div></div>
-      <div class="stat p"><div class="n">${tot.blocked}</div><div class="l">Blocked</div></div>`;
-    $('memberBody').innerHTML=stats.sort((a,b)=>(b.checked||0)-(a.checked||0)).map(s=>{const pct=s.assigned?Math.round(100*(s.checked||0)/s.assigned):0;
-      return `<tr><td><b>${esc(s.member)}</b></td><td><div class="barwrap"><div class="bar" style="width:${pct}%"></div></div> ${pct}%</td>
-      <td>${s.checked||0}/${s.assigned||0}</td><td>${s.good||0}</td><td style="color:#c62828">${s.short||0}</td><td style="color:#c62828">${s.missing||0}</td><td style="color:#6b2fd0">${s.blocked||0}</td></tr>`;}).join('')
-      ||'<tr><td colspan="7" class="empty">Nothing published for the current run yet.</td></tr>';
-    $('dashStamp').textContent='totals as of '+new Date().toLocaleTimeString();
-  }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
+/* ================= DASHBOARD (tracks ALL active runs) ================= */
+$('refreshDash').onclick=()=>loadActive(true);
+function renderProgress(){
+  const per={};(detail||[]).forEach(t=>{const m=t.assignedTo||t.checkedBy||'?';const s=per[m]=per[m]||{member:m,assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
+    s.assigned++;if(t.status&&t.status!=='open'){s.checked++;if(s[t.status]!==undefined)s[t.status]++;}});
+  const arr=Object.values(per).sort((a,b)=>b.checked-a.checked);
+  const tot=arr.reduce((a,s)=>{['assigned','checked','good','short','missing','blocked'].forEach(k=>a[k]+=s[k]);return a;},{assigned:0,checked:0,good:0,short:0,missing:0,blocked:0});
+  $('dashCards').innerHTML=`<div class="stat"><div class="n">${tot.assigned}</div><div class="l">Assigned</div></div>
+    <div class="stat"><div class="n">${tot.checked}</div><div class="l">Checked</div></div>
+    <div class="stat g"><div class="n">${tot.good}</div><div class="l">Good</div></div>
+    <div class="stat r"><div class="n">${tot.short}</div><div class="l">Short</div></div>
+    <div class="stat r"><div class="n">${tot.missing}</div><div class="l">Missing</div></div>
+    <div class="stat p"><div class="n">${tot.blocked}</div><div class="l">Blocked</div></div>`;
+  $('memberBody').innerHTML=arr.map(s=>{const pc=s.assigned?Math.round(100*s.checked/s.assigned):0;
+    return `<tr><td><b>${esc(s.member)}</b></td><td><div class="barwrap"><div class="bar" style="width:${pc}%"></div></div> ${pc}%</td>
+    <td>${s.checked}/${s.assigned}</td><td>${s.good}</td><td style="color:#c62828">${s.short}</td><td style="color:#c62828">${s.missing}</td><td style="color:#6b2fd0">${s.blocked}</td></tr>`;}).join('')
+    ||'<tr><td colspan="7" class="empty">No active runs. Publish a build, or Resume a day.</td></tr>';
+  const runs={};(detail||[]).forEach(t=>{const k=(t.division||'?')+' · '+(t.day||'?');const r=runs[k]=runs[k]||{n:0,done:0};r.n++;if(t.status&&t.status!=='open')r.done++;});
+  const txt=Object.entries(runs).sort().map(([k,r])=>`${k} (${r.done}/${r.n})`).join('    •    ');
+  if($('activeRunLbl'))$('activeRunLbl').textContent=txt||'none';
+  if($('windowPill'))$('windowPill').textContent=Object.keys(runs).length+' active run(s)';
+  $('dashStamp').textContent='as of '+new Date().toLocaleTimeString();
 }
-function setActiveLbl(){if($('activeRunLbl'))$('activeRunLbl').textContent=ACTIVE&&ACTIVE.day?('run '+ACTIVE.day+(ACTIVE.window?(' · '+ACTIVE.window+'-day'):'')):'none';}
+function dashFromCache(){if(detail){renderProgress();renderDetailTabs();renderDetail();return true;}
+  try{const c=localStorage.getItem('bv_detail_all');if(c){detail=JSON.parse(c);renderProgress();renderDetailTabs();renderDetail();return true;}}catch(e){}return false;}
+function setActiveLbl(){if(!dashFromCache()&&$('activeRunLbl'))$('activeRunLbl').textContent='press “Refresh totals” to load';}
 if($('resumeDate')){const d=new Date();d.setDate(d.getDate()-1);const p=n=>String(n).padStart(2,'0');$('resumeDate').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 $('resumeDay')&&($('resumeDay').onclick=async()=>{
   const day=$('resumeDate').value;if(!day){alert('Pick the date to resume.');return;}
@@ -708,19 +713,22 @@ $('resumeDay')&&($('resumeDay').onclick=async()=>{
   }catch(e){$('resumeMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 });
 let detailTab='totals';
-const detailKey=()=>`bv_detail_${activeDay()}`;
+const detailKey=()=>`bv_detail_all`;
 function saveDetailCache(){try{localStorage.setItem(detailKey(),JSON.stringify(detail));}catch(e){}}
-$('loadDetail').onclick=()=>loadDetail(false);
-$('refreshDetail').onclick=()=>loadDetail(true);
-async function loadDetail(force){if(force)await refreshActive();const day=activeDay();
+$('loadDetail').onclick=()=>loadActive(false);
+$('refreshDetail').onclick=()=>loadActive(true);
+// Loads EVERY active (unarchived) run across all days & divisions, so live progress + detail cover everyone currently counting.
+async function loadActive(force){
   if(!force){
-    if(detail){renderDetailTabs();renderDetail();$('detailMsg').textContent='showing loaded data — press ↻ Refresh for the team\'s latest';return;}
-    try{const c=localStorage.getItem(detailKey());if(c){detail=JSON.parse(c);renderDetailTabs();renderDetail();$('detailMsg').textContent='from cache — press ↻ Refresh for the team\'s latest';return;}}catch(e){}
+    if(detail){renderProgress();renderDetailTabs();renderDetail();$('detailMsg').textContent='showing loaded data — press ↻ Refresh for the team\'s latest';return;}
+    try{const c=localStorage.getItem(detailKey());if(c){detail=JSON.parse(c);renderProgress();renderDetailTabs();renderDetail();$('detailMsg').textContent='from cache — press ↻ Refresh for the team\'s latest';return;}}catch(e){}
   }
-  $('detailMsg').textContent='getting latest from server…';
-  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    detail=flattenBundles(qs.docs);saveDetailCache();$('detailMsg').textContent=`${detail.length} cards · synced (${qs.size} reads)`;renderDetailTabs();renderDetail();
-  }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
+  $('detailMsg').textContent='getting latest from server…';$('dashStamp').textContent='loading…';
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('archived','==',false)));addReads(qs.size||1);
+    detail=flattenBundles(qs.docs);saveDetailCache();
+    renderProgress();renderDetailTabs();renderDetail();
+    $('detailMsg').textContent=`${detail.length} active cards across all runs · synced (${qs.size} reads)`;
+  }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';$('dashStamp').textContent='';}
 }
 function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
   $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
@@ -813,13 +821,20 @@ $('appriseBtn').onclick=()=>{
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Apprise Import');
   XLSX.writeFile(wb,'Apprise_Adjustment_'+activeDay()+'.xlsx');
 };
-$('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory and archive the day?'))return;$('archiveMsg').textContent='reading…';const day=activeDay();
-  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    const tasks=flattenBundles(qs.docs);const history=await readHistory();
+if($('archiveDate'))$('archiveDate').value=todayStr();
+$('archiveDay').onclick=async()=>{
+  const day=$('archiveDate').value||todayStr();const divf=$('archiveDiv').value||'';
+  if(!confirm('Archive the '+(divf||'all-division')+' run for '+day+'? Its counts fold into skip-memory and it closes for the team. Other runs keep going.'))return;
+  $('archiveMsg').textContent='reading '+day+'…';
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day)));addReads(qs.size||1);
+    const use=qs.docs.filter(d=>{const dt=d.data();return dt.archived!==true&&(!divf||(dt.division||'')===divf);});
+    if(!use.length){$('archiveMsg').textContent='No open run found for '+day+(divf?(' / '+divf):'')+'.';return;}
+    const tasks=flattenBundles(use);const history=await readHistory();
     tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;history[(t.division||'')+'|'+t.bin+'|'+t.code]={sq:t.systemTotal,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
     await writeHistory(history);
-    const ids=qs.docs.map(d=>d.id);for(let i=0;i<ids.length;i+=400){const b=writeBatch(db);ids.slice(i,i+400).forEach(id=>b.update(doc(db,'bundles',id),{archived:true}));await b.commit();addWrites(Math.min(400,ids.length-i));}
-    $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards. Memory now '+Object.keys(history).length+' keys.</span>';
+    const ids=use.map(d=>d.id);for(let i=0;i<ids.length;i+=400){const b=writeBatch(db);ids.slice(i,i+400).forEach(id=>b.update(doc(db,'bundles',id),{archived:true}));await b.commit();addWrites(Math.min(400,ids.length-i));}
+    if(detail){detail=detail.filter(t=>!(t.day===day&&(!divf||(t.division||'')===divf)));saveDetailCache();renderProgress();renderDetailTabs();renderDetail();}
+    $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards from '+day+(divf?(' / '+divf):'')+'. Skip-memory now '+Object.keys(history).length+' keys. Other runs untouched.</span>';
   }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
 };
 
