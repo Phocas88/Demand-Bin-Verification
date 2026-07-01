@@ -211,6 +211,7 @@
     <div class="panel">
       <h2>Archive search</h2>
       <div class="row-f">
+        <input class="in" type="date" id="archDay" style="width:160px">
         <select class="in" id="archField"><option value="bin">Bin</option><option value="code">Product code</option><option value="checkedBy">Checked by</option></select>
         <input class="in" id="archVal" placeholder="exact value" style="flex:1;min-width:160px">
         <button class="act" id="archSearch">Search</button><span id="archMsg" class="note"></span></div>
@@ -245,7 +246,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  writeBatch, query, where, increment } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  writeBatch, query, where, increment, FieldPath } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey:"AIzaSyAaP36f_ubgINso1pzVNAfcud_Zr4aBj3I", authDomain:"demand-bin-verification.firebaseapp.com",
@@ -261,6 +262,10 @@ let READS=0,WRITES=0;
 const addReads=n=>{READS+=n;$('reads').textContent=READS;};
 const addWrites=n=>{WRITES+=n;$('writes').textContent=WRITES;};
 const todayStr=()=>{const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;};
+// The active working day comes from the last published run (meta/current), NOT the device calendar,
+// so a published set stays live until it's archived — even if the team finishes the next day or works past midnight.
+function activeDay(){return (ACTIVE&&ACTIVE.day)?ACTIVE.day:todayStr();}
+async function refreshActive(){try{const c=await getDoc(doc(db,'meta','current'));addReads(1);if(c.exists())ACTIVE=c.data();}catch(e){}}
 function natkey(s){s=String(s);return s.split(/(\d+)/).filter(x=>x!=='').map(p=>/^\d+$/.test(p)?{n:parseInt(p,10)}:{t:p.toLowerCase()});}
 function natcmp(a,b){const ka=natkey(a),kb=natkey(b);for(let i=0;i<Math.max(ka.length,kb.length);i++){const x=ka[i],y=kb[i];if(x===undefined)return-1;if(y===undefined)return 1;if('n'in x&&'n'in y){if(x.n!==y.n)return x.n-y.n;}else if('t'in x&&'t'in y){if(x.t!==y.t)return x.t<y.t?-1:1;}else return('n'in x)?-1:1;}return 0;}
 function col(row,names){const k=Object.keys(row);for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase()===w.toLowerCase());if(h)return h;}for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase().includes(w.toLowerCase()));if(h)return h;}return null;}
@@ -272,9 +277,12 @@ function parseLevels(spec){spec=String(spec).trim();if(!spec)return null;const s
 function zoneOf(bin){const m=String(bin).match(/^[A-Za-z]*\d+|^[A-Za-z]+/);return m?m[0].toUpperCase():String(bin).slice(0,3).toUpperCase();}
 function readFile(file){return new Promise(res=>{const r=new FileReader();r.onload=e=>res(XLSX.read(new Uint8Array(e.target.result),{type:'array'}));r.readAsArrayBuffer(file);});}
 function firstSheet(wb,test){for(const n of wb.SheetNames){const j=XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:''});if(j.length&&(!test||test(j[0])))return j;}return null;}
+// Each counter's whole list lives in a few bundle docs (tasks stored as a map keyed by division|bin|code).
+// Loading a counter = a couple of reads instead of one-per-bin; saving patches a single entry in place.
+function flattenBundles(docs){const out=[];docs.forEach(d=>{const data=d.data()||{};const tk=data.tasks||{};for(const k in tk){out.push({...tk[k],_docId:d.id,_key:k,day:data.day,member:data.member,assignedTo:data.member});}});return out;}
 
 /* ---------- session + config ---------- */
-let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null,PACKS={};
+let ME='',ROLE='',CONFIG=null,binRows=null,demRows=null,computed=null,detail=null,PACKS={},ACTIVE=null;
 const BOOTSTRAP='1988';
 function defaultConfig(){return {users:[],recheckDays:7,divisions:[
   {code:'GT',name:'TAG',special:'GTMissing, Replenshorts, GTDM, GTInvest'},
@@ -291,6 +299,7 @@ signInAnonymously(auth).then(async()=>{
   try{const c=await getDoc(doc(db,'meta','config'));addReads(1);CONFIG=c.exists()?{...defaultConfig(),...c.data()}:defaultConfig();}
   catch(e){CONFIG=defaultConfig();}
   try{const pk=await getDoc(doc(db,'meta','packs'));addReads(1);if(pk.exists())PACKS=pk.data().codes||{};}catch(e){}
+  await refreshActive();
 }).catch(e=>{$('connState').className='err';$('connState').innerHTML='Connect failed — enable <b>Authentication → Anonymous</b> and <b>Firestore</b> in Firebase, then reload. ('+esc(e.code||e.message)+')';});
 
 async function writePack(code,pack){if(!(pack>1))return;PACKS[code]=pack;try{await setDoc(doc(db,'meta','packs'),{codes:{[code]:pack},updatedAt:Date.now()},{merge:true});addWrites(1);}catch(e){}}
@@ -338,7 +347,8 @@ function buildNav(){const nav=$('nav');nav.innerHTML='';
 }
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));$('view-'+id).classList.remove('hidden');
   [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));
-  if(id==='check')loadMine(false);}
+  if(id==='check')loadMine(false);
+  if(id==='arch'&&$('archDay')&&!$('archDay').value)$('archDay').value=activeDay();}
 
 /* ================= SETTINGS / USERS ================= */
 function renderUsers(){
@@ -494,17 +504,16 @@ $('btnPublish').onclick=async()=>{
   if(!mem.length){alert('Press Auto-assign first.');return;}
   $('btnPublish').disabled=true;$('publishMsg').textContent='publishing…';
   try{
-    const day=computed.day,tasks=computed.active;let w=0;
-    for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);
-      tasks.slice(i,i+400).forEach(t=>b.set(doc(db,'tasks',day+'__'+computed.division+'__'+t.key),{
-        day,division:computed.division,bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),
-        systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:computed.window,
-        assignedTo:t.assignedTo||'',statusFlag:t.status.lbl,status:'open',
-        countedEach:0,countedCase:0,countedTotal:0,checkedBy:'',checkedAt:0,note:'',archived:false}));
-      await b.commit();addWrites(Math.min(400,tasks.length-i));w+=Math.min(400,tasks.length-i);}
-    const sb=writeBatch(db);const per={};tasks.forEach(t=>{if(t.assignedTo)per[t.assignedTo]=(per[t.assignedTo]||0)+1;});
+    const day=computed.day,tasks=computed.active,CHUNK=800;let w=0;
+    const byMember={};tasks.forEach(t=>{const m=t.assignedTo||'';if(m)(byMember[m]=byMember[m]||[]).push(t);});
+    for(const [m,list] of Object.entries(byMember)){
+      for(let ci=0;ci*CHUNK<list.length;ci++){const slice=list.slice(ci*CHUNK,(ci+1)*CHUNK);const tmap={};
+        slice.forEach(t=>{tmap[computed.division+'|'+t.bin+'|'+t.code]={division:computed.division,bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:computed.window,statusFlag:t.status.lbl,status:'open',countedEach:0,countedCase:0,countedTotal:0,checkedBy:'',checkedAt:0,note:''};});
+        await setDoc(doc(db,'bundles',day+'__'+computed.division+'__'+m+'__'+ci),{day,division:computed.division,member:m,chunk:ci,archived:false,updatedAt:Date.now(),tasks:tmap});addWrites(1);w+=slice.length;}
+    }
+    const sb=writeBatch(db);const per={};Object.entries(byMember).forEach(([m,list])=>per[m]=list.length);
     Object.entries(per).forEach(([m,n])=>sb.set(doc(db,'stats',day+'__'+m),{day,member:m,assigned:n,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0,updatedAt:Date.now()}));
-    sb.set(doc(db,'meta','current'),{day,division:computed.division,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});
+    sb.set(doc(db,'meta','current'),{day,division:computed.division,window:computed.window,members:Object.keys(per),active:tasks.length,trace:computed.trace,publishedAt:Date.now()});ACTIVE={day,division:computed.division,window:computed.window};
     await sb.commit();addWrites(Object.keys(per).length+1);
     $('publishMsg').innerHTML=`<span class="saved">Published ${w} cards to ${Object.keys(per).length} members for the ${computed.window}-day window.</span>`;
   }catch(e){$('publishMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
@@ -519,25 +528,26 @@ async function writeHistory(map){const keys=Object.keys(map),SIZE=3000,chunks=[]
 
 /* ================= CHECKER ================= */
 let myTasks=[],cur=0,myLoaded=false;
-const myCacheKey=()=>`bv_my_${todayStr()}_${ME}`;
+const myCacheKey=()=>`bv_my_${activeDay()}_${ME}`;
 function saveMyCache(){try{localStorage.setItem(myCacheKey(),JSON.stringify(myTasks));}catch(e){}}
 $('loadMine').onclick=()=>loadMine(true);   // explicit "Get latest" = server read
 async function loadMine(force){
-  const day=todayStr();
+  if(force)await refreshActive();
+  const day=activeDay();
   if(!force){
     if(myLoaded){renderMine();return;}                       // already in memory this session — 0 reads
     try{const c=localStorage.getItem(myCacheKey());if(c){myTasks=JSON.parse(c);myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;renderMine();note('from your device — press “Get latest” to sync');return;}}catch(e){}
   }
   $('cardPanel').innerHTML='<div class="empty">getting latest from server…</div>';
-  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('assignedTo','==',ME),where('archived','==',false)));addReads(qs.size||1);
-    myTasks=qs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('member','==',ME),where('archived','==',false)));addReads(qs.size||1);
+    myTasks=flattenBundles(qs.docs).sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
     myLoaded=true;cur=myTasks.findIndex(t=>t.status==='open');if(cur<0)cur=0;saveMyCache();renderMine();note('synced ('+(qs.size)+' read)');
   }catch(e){$('cardPanel').innerHTML='<div class="err" style="margin:6px">'+esc(e.code||e.message)+(String(e.message).includes('index')?' — click the link in the browser console to create the index (one-time), then retry.':'')+'</div>';}
 }
 function note(msg){const el=document.createElement('span');el.className='note';el.style.marginLeft='8px';el.textContent=msg;const h=$('myProgress');if(h){const b=h.querySelector('#listBtn');if(b)b.after(el);}}
 function statusClass(s){return s==='good'?'good':(s==='short'||s==='missing')?s:(s==='blocked'?'blocked':'');}
 function renderMine(){
-  if(!myTasks.length){$('myProgress').innerHTML='';$('cardPanel').innerHTML='<div class="empty">Nothing assigned to \u201c'+esc(ME)+'\u201d today.</div>';return;}
+  if(!myTasks.length){$('myProgress').innerHTML='';$('cardPanel').innerHTML='<div class="empty">No open bins for you in the current run'+(ACTIVE&&ACTIVE.day?' (run '+esc(ACTIVE.day)+')':'')+'. If your manager just published, tap \u21bb Get latest.</div>';return;}
   showCard(cur);
 }
 function progressHtml(){const done=myTasks.filter(t=>t.status!=='open').length;const pct=Math.round(100*done/myTasks.length);
@@ -545,6 +555,7 @@ function progressHtml(){const done=myTasks.filter(t=>t.status!=='open').length;c
     <b>Line ${cur+1} of ${myTasks.length}</b>
     <div class="barwrap" style="flex:1;min-width:110px"><div class="bar" style="width:${pct}%"></div></div>
     <span class="note" style="white-space:nowrap">${done} done</span>
+    <span class="note" style="white-space:nowrap">run ${activeDay()}</span>
     <button class="ghost act" id="listBtn" style="padding:6px 12px">\u2630 All lines</button></div>`;}
 function showCard(i){
   cur=Math.max(0,Math.min(i,myTasks.length-1));const t=myTasks[cur];
@@ -610,7 +621,8 @@ async function commitCard(force){const t=myTasks[cur];const miss=$('cMiss')?.che
   const st=force||(miss?'missing':(total<t.demand?'short':'good'));const note=$('cNote')?.value||'';const prev=t.status;
   const newPack=(pack>1&&!known)?pack:t.pack;
   try{
-    await updateDoc(doc(db,'tasks',t.id),{status:st,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:ME,checkedAt:Date.now()});addWrites(1);
+    const kp=f=>new FieldPath('tasks',t._key,f);
+    await updateDoc(doc(db,'bundles',t._docId),kp('status'),st,kp('countedEach'),eaches,kp('countedCase'),cases,kp('countedTotal'),total,kp('pack'),newPack,kp('note'),note,kp('checkedBy'),ME,kp('checkedAt'),Date.now(),'updatedAt',Date.now());addWrites(1);
     if(pack>1&&!known)writePack(t.code,pack);
     const inc={updatedAt:Date.now()};
     if(prev==='open'){inc.checked=increment(1);inc[st]=increment(1);}
@@ -630,10 +642,9 @@ $('listModal').addEventListener('click',e=>{if(e.target===$('listModal'))$('list
 
 /* ================= DASHBOARD ================= */
 $('refreshDash').onclick=loadDash;
-async function loadDash(){const day=todayStr();
+async function loadDash(){await refreshActive();const day=activeDay();
   try{
-    let cur=null;try{const c=await getDoc(doc(db,'meta','current'));addReads(1);if(c.exists())cur=c.data();}catch(e){}
-    $('windowPill').textContent=cur?(cur.window+'-day window'):'';
+    $('windowPill').textContent=ACTIVE?((ACTIVE.window||'?')+'-day window · run '+day):'no active run';
     const ms=await getDocs(query(collection(db,'stats'),where('day','==',day)));addReads(ms.size||1);
     const stats=ms.docs.map(d=>d.data());const tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
     stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;});
@@ -646,23 +657,23 @@ async function loadDash(){const day=todayStr();
     $('memberBody').innerHTML=stats.sort((a,b)=>(b.checked||0)-(a.checked||0)).map(s=>{const pct=s.assigned?Math.round(100*(s.checked||0)/s.assigned):0;
       return `<tr><td><b>${esc(s.member)}</b></td><td><div class="barwrap"><div class="bar" style="width:${pct}%"></div></div> ${pct}%</td>
       <td>${s.checked||0}/${s.assigned||0}</td><td>${s.good||0}</td><td style="color:#c62828">${s.short||0}</td><td style="color:#c62828">${s.missing||0}</td><td style="color:#6b2fd0">${s.blocked||0}</td></tr>`;}).join('')
-      ||'<tr><td colspan="7" class="empty">Nothing published yet today.</td></tr>';
+      ||'<tr><td colspan="7" class="empty">Nothing published for the current run yet.</td></tr>';
     $('dashStamp').textContent='totals as of '+new Date().toLocaleTimeString();
   }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 }
 let detailTab='totals';
-const detailKey=()=>`bv_detail_${todayStr()}`;
+const detailKey=()=>`bv_detail_${activeDay()}`;
 function saveDetailCache(){try{localStorage.setItem(detailKey(),JSON.stringify(detail));}catch(e){}}
 $('loadDetail').onclick=()=>loadDetail(false);
 $('refreshDetail').onclick=()=>loadDetail(true);
-async function loadDetail(force){const day=todayStr();
+async function loadDetail(force){if(force)await refreshActive();const day=activeDay();
   if(!force){
     if(detail){renderDetailTabs();renderDetail();$('detailMsg').textContent='showing loaded data — press ↻ Refresh for the team\'s latest';return;}
     try{const c=localStorage.getItem(detailKey());if(c){detail=JSON.parse(c);renderDetailTabs();renderDetail();$('detailMsg').textContent='from cache — press ↻ Refresh for the team\'s latest';return;}}catch(e){}
   }
   $('detailMsg').textContent='getting latest from server…';
-  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    detail=qs.docs.map(d=>({id:d.id,...d.data()}));saveDetailCache();$('detailMsg').textContent=`${detail.length} cards · synced (${qs.size} reads)`;renderDetailTabs();renderDetail();
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
+    detail=flattenBundles(qs.docs);saveDetailCache();$('detailMsg').textContent=`${detail.length} cards · synced (${qs.size} reads)`;renderDetailTabs();renderDetail();
   }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+(String(e.message).includes('index')?' (create the index via the console link)':'')+'</span>';}
 }
 function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
@@ -724,13 +735,13 @@ function printCountSheet(list){
     body+=`<tr><td>${esc(t.division||'')}</td><td><b>${esc(t.code)}</b><div class="nm">${esc(t.name||'')}</div></td>
       <td>${t.systemEach} ea${isC?' | '+t.systemCase+' c'+t.pack:''}</td><td>${t.demand||''}</td>
       <td class="w"></td><td class="w">${isC?'':'<span class=x>—</span>'}</td><td class="m"></td><td class="nt"></td></tr>`;});
-  w.document.write(`<html><head><title>Count Sheet ${todayStr()}</title><style>
+  w.document.write(`<html><head><title>Count Sheet ${activeDay()}</title><style>
     body{font-family:Arial;font-size:12px;margin:14px;color:#111}h2{margin:0 0 2px}.sub{color:#555;font-size:11px;margin-bottom:8px}
     table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 6px;text-align:left;vertical-align:top}
     th{background:#e8eef6;font-size:10px}.nm{font-size:9px;color:#555}.bh td{background:#f0f0f0;font-weight:800}
     .w{width:55px}.m{width:30px}.nt{width:130px}.x{color:#aaa}
     @media print{.noprint{display:none}}</style></head><body>
-    <h2>Bin Count Sheet</h2><div class="sub">${todayStr()} · ${list.length} lines · Counter: ____________</div>
+    <h2>Bin Count Sheet</h2><div class="sub">${activeDay()} · ${list.length} lines · Counter: ____________</div>
     <table><thead><tr><th>Div</th><th>Product</th><th>Apprise on-hand</th><th>Demand</th><th>Count each</th><th>Cases</th><th>Miss</th><th>Notes</th></tr></thead><tbody>${body}</tbody></table>
     <button class="noprint" onclick="window.print()" style="margin-top:12px;padding:9px 16px;font-weight:700">Print</button></body></html>`);
   w.document.close();
@@ -754,14 +765,14 @@ $('appriseBtn').onclick=()=>{
   // force text on A,B,C so bins like 41-02-02 stay text
   rows.forEach((r,i)=>{if(i===0)return;['A','B','C'].forEach(cl=>{const ref=cl+(i+1);if(ws[ref]){ws[ref].t='s';ws[ref].v=String(ws[ref].v);}});});
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Apprise Import');
-  XLSX.writeFile(wb,'Apprise_Adjustment_'+todayStr()+'.xlsx');
+  XLSX.writeFile(wb,'Apprise_Adjustment_'+activeDay()+'.xlsx');
 };
-$('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory and archive the day?'))return;$('archiveMsg').textContent='reading…';const day=todayStr();
-  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
-    const tasks=qs.docs.map(d=>({id:d.id,...d.data()}));const history=await readHistory();
+$('archiveDay').onclick=async()=>{if(!confirm('Save today\'s counts to memory and archive the day?'))return;$('archiveMsg').textContent='reading…';const day=activeDay();
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day),where('archived','==',false)));addReads(qs.size||1);
+    const tasks=flattenBundles(qs.docs);const history=await readHistory();
     tasks.forEach(t=>{if(t.status==='open'||t.status==='blocked')return;history[(t.division||'')+'|'+t.bin+'|'+t.code]={sq:t.systemTotal,at:Date.now(),out:(t.status==='good'?'good':'adjust'),open:(t.status==='short'||t.status==='missing')};});
     await writeHistory(history);
-    for(let i=0;i<tasks.length;i+=400){const b=writeBatch(db);tasks.slice(i,i+400).forEach(t=>b.update(doc(db,'tasks',t.id),{archived:true}));await b.commit();addWrites(Math.min(400,tasks.length-i));}
+    const ids=qs.docs.map(d=>d.id);for(let i=0;i<ids.length;i+=400){const b=writeBatch(db);ids.slice(i,i+400).forEach(id=>b.update(doc(db,'bundles',id),{archived:true}));await b.commit();addWrites(Math.min(400,ids.length-i));}
     $('archiveMsg').innerHTML='<span class="saved">Archived '+tasks.length+' cards. Memory now '+Object.keys(history).length+' keys.</span>';
   }catch(e){$('archiveMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
@@ -788,7 +799,8 @@ $('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome
   const note=$('emNote').value;const member=t.checkedBy||t.assignedTo||ME;const prev=t.status;
   $('emMsg').textContent='saving…';
   try{
-    await updateDoc(doc(db,'tasks',t.id),{status,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:member,checkedAt:t.checkedAt||Date.now(),editedBy:ME,editedAt:Date.now()});addWrites(1);
+    const kp=f=>new FieldPath('tasks',t._key,f);
+    await updateDoc(doc(db,'bundles',t._docId),kp('status'),status,kp('countedEach'),eaches,kp('countedCase'),cases,kp('countedTotal'),total,kp('pack'),newPack,kp('note'),note,kp('checkedBy'),member,kp('checkedAt'),t.checkedAt||Date.now(),kp('editedBy'),ME,kp('editedAt'),Date.now(),'updatedAt',Date.now());addWrites(1);
     if(pack>1&&!known)writePack(t.code,pack);
     const inc={updatedAt:Date.now()};
     if(prev==='open'){inc.checked=increment(1);inc[status]=increment(1);}
@@ -816,7 +828,7 @@ async function runReport(){const from=$('repFrom').value,to=$('repTo').value;if(
     repData={from,to,stats:qs.docs.map(d=>d.data()),offs:[],offErr:false};
     $('repMsg').textContent='reading off bins\u2026';let offReads=0;
     for(const d of dateRange(from,to)){
-      try{const os=await getDocs(query(collection(db,'tasks'),where('day','==',d),where('status','in',['short','missing','blocked'])));offReads+=os.size;addReads(os.size||0);os.docs.forEach(x=>repData.offs.push(x.data()));}
+      try{const os=await getDocs(query(collection(db,'bundles'),where('day','==',d)));offReads+=os.size;addReads(os.size||0);flattenBundles(os.docs).forEach(x=>{if(x.status==='short'||x.status==='missing'||x.status==='blocked')repData.offs.push(x);});}
       catch(e){if(String(e.message).includes('index')){repData.offErr=true;break;}}
     }
     repData.offs.sort((a,b)=>(a.day<b.day?-1:a.day>b.day?1:0)||natcmp(a.bin,b.bin));
@@ -892,18 +904,18 @@ $('rebBtn')&&($('rebBtn').onclick=async()=>{
   const day=$('rebDay').value||todayStr();
   if(!confirm('Rebuild stats for '+day+'? Reads that day cards once and recomputes every counter totals.'))return;
   $('rebMsg').textContent='reading '+day+'\u2026';
-  try{const qs=await getDocs(query(collection(db,'tasks'),where('day','==',day)));addReads(qs.size||1);
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day)));addReads(qs.size||1);
     const per={},P=m=>per[m]=per[m]||{day,member:m,assigned:0,checked:0,good:0,short:0,missing:0,blocked:0,eaches:0,cases:0};
-    qs.docs.map(d=>d.data()).forEach(t=>{if(t.assignedTo)P(t.assignedTo).assigned++;
+    flattenBundles(qs.docs).forEach(t=>{if(t.assignedTo)P(t.assignedTo).assigned++;
       if(t.status&&t.status!=='open'){const m=t.checkedBy||t.assignedTo;if(m){const x=P(m);x.checked++;if(x[t.status]!==undefined)x[t.status]++;x.eaches+=t.countedEach||0;x.cases+=t.countedCase||0;}}});
     const list=Object.values(per),b=writeBatch(db);list.forEach(x=>b.set(doc(db,'stats',day+'__'+x.member),{...x,updatedAt:Date.now()}));await b.commit();addWrites(list.length||1);
     $('rebMsg').innerHTML='<span class="saved">Rebuilt '+list.length+' counter(s) for '+day+' \u2014 re-run the report.</span>';
   }catch(e){$('rebMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 });
 /* ================= ARCHIVE SEARCH ================= */
-$('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();if(!val){alert('Enter a value.');return;}$('archMsg').textContent='searching…';
-  try{const qs=await getDocs(query(collection(db,'tasks'),where(field,'==',val)));addReads(qs.size||1);
-    const rows=qs.docs.map(d=>d.data()).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
+$('archSearch').onclick=async()=>{const field=$('archField').value,val=$('archVal').value.trim();const day=$('archDay').value;if(!val){alert('Enter a value.');return;}if(!day){alert('Pick a day to search (keeps reads low).');return;}$('archMsg').textContent='searching…';
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('day','==',day)));addReads(qs.size||1);
+    const rows=flattenBundles(qs.docs).filter(t=>String(t[field]||'')===val).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
     $('archBody').innerHTML=rows.map(t=>`<tr><td>${esc(t.day)}</td><td>${esc(t.bin)}</td><td>${esc(t.code)}</td><td>${fmt(t.demand)}</td>
       <td>${t.status==='missing'?'<b style="color:#c62828">missing</b>':fmt(t.countedTotal)}</td><td><span class="badge b-${t.status||'new'}">${esc(t.status||'open')}</span></td>
       <td>${esc(t.checkedBy||'')}</td><td>${t.checkedAt?new Date(t.checkedAt).toLocaleString():''}</td><td>${esc(t.note||'')}</td></tr>`).join('')
