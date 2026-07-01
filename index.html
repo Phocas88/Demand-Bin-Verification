@@ -247,6 +247,7 @@
     <div class="note" id="emSub"></div>
     <div class="row-f"><label>Count each</label><input class="in" id="emEach" type="number" min="0" style="width:90px">
       <span id="emCaseWrap" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label>Cases</label><input class="in" id="emCase" type="number" min="0" style="width:80px"> <span id="emCaseLbl" class="ea"></span><span id="emPerWrap" style="display:none">× <input class="in" id="emPer" type="number" min="0" style="width:78px" placeholder="per case"> <span class="ea">per case</span></span></span></div>
+    <div class="row-f"><label>Assigned to</label><select class="in" id="emAssign" style="min-width:150px"></select> <span class="note">change to re-assign this bin</span></div>
     <div class="row-f"><label>Outcome</label>
       <select class="in" id="emOutcome"><option value="auto">Auto (good / short by count)</option><option value="missing">Missing</option><option value="blocked">Blocked</option></select></div>
     <div class="row-f"><label>Note</label><input class="in" id="emNote" style="flex:1;min-width:170px"></div>
@@ -266,7 +267,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  writeBatch, query, where, increment, FieldPath } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  writeBatch, query, where, increment, FieldPath, deleteField } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey:"AIzaSyAaP36f_ubgINso1pzVNAfcud_Zr4aBj3I", authDomain:"demand-bin-verification.firebaseapp.com",
@@ -740,20 +741,36 @@ async function loadActive(force){
     $('detailMsg').textContent=`${detail.length} active cards across all runs · synced (${qs.size} reads)`;
   }catch(e){$('detailMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';$('dashStamp').textContent='';}
 }
-function renderDetailTabs(){const tabs=[['totals','Product totals'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
+function renderDetailTabs(){const tabs=[['totals','Missing qty'],['bins','Bin grid'],['cons','Consolidation'],['outs','Outs / trace']];
   $('detailTabs').innerHTML=tabs.map(([id,l])=>`<button data-t="${id}" class="${detailTab===id?'on':''}">${l}</button>`).join('');
   document.querySelectorAll('#detailTabs button').forEach(b=>b.onclick=()=>{detailTab=b.dataset.t;renderDetailTabs();renderDetail();});}
 function rollup(){const byCode={};(detail||[]).forEach(t=>{const gk=(t.division||'')+'|'+t.code;const o=byCode[gk]=byCode[gk]||{division:t.division||'',code:t.code,name:t.name,demand:t.demand||0,sys:0,located:0,checked:0,bins:[]};
   o.sys+=t.systemTotal||0;o.bins.push(t);if(t.status!=='open'){o.checked++;}o.located+=(t.status==='open'?0:(t.countedTotal||0));});return byCode;}
 function renderDetail(){const host=$('detailOut');if(!detail){host.innerHTML='<div class="empty">Load team entries first.</div>';return;}
-  if(detailTab==='totals'){const r=rollup();const rows=Object.values(r).sort((a,b)=>(a.located-a.demand)-(b.located-b.demand));
-    const covered=rows.filter(o=>o.located>=o.demand&&o.demand>0).length;
-    host.innerHTML=`<div class="note">Located vs demand for the uploaded window. A product is <b>covered</b> once the team has confirmed enough across all its bins. ${covered}/${rows.length} products covered.</div>
-    <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Apprise sys</th><th>Located</th><th>Bins checked</th><th>Status</th></tr></thead><tbody>${
-      rows.map(o=>{const cov=o.demand>0&&o.located>=o.demand;const part=o.checked<o.bins.length;
-        return `<tr><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.sys)}</td>
-        <td style="font-weight:800;color:${cov?'#2e7d32':'#c62828'}">${fmt(o.located)}</td><td>${o.checked}/${o.bins.length}</td>
-        <td>${cov?'<span class="badge b-good">COVERED</span>':(part?'<span class="badge b-stale">IN PROGRESS</span>':'<span class="badge b-missing">SHORT '+fmt(o.demand-o.located)+'</span>')}</td></tr>`;}).join('')}</tbody></table></div>`;
+  if(detailTab==='totals'){const r=rollup();
+    let rows=Object.values(r).map(o=>({...o,missing:Math.max(0,(o.demand||0)-(o.located||0))}));
+    const f=window._sfFilter||'short';
+    let view=rows.slice();
+    if(f==='short')view=view.filter(o=>o.missing>0);
+    else if(f==='zero')view=view.filter(o=>o.demand>0&&o.located===0);
+    view.sort((a,b)=>b.missing-a.missing);
+    const totMissing=rows.reduce((a,o)=>a+o.missing,0);
+    const nShort=rows.filter(o=>o.missing>0).length,nZero=rows.filter(o=>o.demand>0&&o.located===0).length;
+    const fb=(id,lbl,n)=>`<button class="${f===id?'on':''}" data-sf="${id}" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;${f===id?'background:var(--navy);color:#fff;border-color:var(--navy)':'background:#fff;color:var(--mut)'}">${lbl} ${n}</button>`;
+    host.innerHTML=`<div class="row-f" style="gap:6px;flex-wrap:wrap;align-items:center">${fb('short','Shortfalls',nShort)}${fb('zero','None found',nZero)}${fb('all','All products',rows.length)}<span class="grow"></span><b>Total missing qty: <span style="color:#c62828">${fmt(totMissing)}</span></b></div>
+      <div class="note">Missing qty = demand − located across <b>all</b> of a product's bins (a future pick may draw from several bins). Tap a row to see its bins. Check bins off in <b>Bin grid → Out</b>.</div>
+      <div class="scroll"><table><thead><tr><th>Product</th><th>Demand</th><th>Located</th><th>Missing&nbsp;qty</th><th>Bins</th><th>Status</th></tr></thead><tbody>${
+      view.map((o,i)=>{const cov=o.missing<=0&&o.demand>0;const zero=o.demand>0&&o.located===0;
+        const binsOff=o.bins.filter(b=>['short','missing','blocked'].includes(b.status)).length;
+        const binsFixed=o.bins.filter(b=>['short','missing','blocked'].includes(b.status)&&b.fixed).length;
+        const main=`<tr data-exp="${i}" style="cursor:pointer;${zero?'background:#fff4f4':''}"><td><b>${esc(o.code)}</b> <span class="pill">${esc(o.division)}</span><br><span class="note">${esc(o.name)}</span></td><td>${fmt(o.demand)}</td><td>${fmt(o.located)}</td>
+          <td style="font-weight:800;color:${o.missing>0?'#c62828':'#2e7d32'}">${o.missing>0?fmt(o.missing):'0'}</td>
+          <td>${o.checked}/${o.bins.length}${binsOff?` · <span class="note" title="off bins fixed">${binsFixed}/${binsOff} fixed</span>`:''}</td>
+          <td>${cov?'<span class="badge b-good">COVERED</span>':zero?'<span class="badge b-missing">NONE FOUND</span>':'<span class="badge b-short">SHORT</span>'}</td></tr>`;
+        const sub=`<tr id="exp_${i}" style="display:none"><td colspan="6" style="background:#fafbfc"><div style="padding:4px 8px;display:flex;gap:6px;flex-wrap:wrap">${[...o.bins].sort((a,b)=>natcmp(a.bin,b.bin)).map(b=>`<span class="pill" title="by ${esc(b.checkedBy||'—')}">${esc(b.bin)}: ${b.status==='open'?'not counted':(b.status==='missing'?'missing':b.status==='blocked'?'blocked':fmt(b.countedTotal))}${b.fixed?' ✅':''}</span>`).join('')}</div></td></tr>`;
+        return main+sub;}).join('')||'<tr><td colspan="6" class="empty">No products in this filter. 🎉</td></tr>'}</tbody></table></div>`;
+    host.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{window._sfFilter=b.dataset.sf;renderDetail();});
+    host.querySelectorAll('[data-exp]').forEach(r=>r.onclick=()=>{const e=$('exp_'+r.dataset.exp);if(e)e.style.display=e.style.display==='none'?'':'none';});
   }else if(detailTab==='bins'){
     const all=[...detail].sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
     const f=window._gridFilter||'all';const isOut=t=>['short','missing','blocked'].includes(t.status);
@@ -903,6 +920,10 @@ window.mgrEdit=function(i){emIdx=i;const t=window._grid[i];const known=t.pack>1;
   $('emSub').textContent=`Apprise ${t.systemEach} each${t.systemCase>0?' | '+t.systemCase+' Case'+t.pack:''} · demand ${t.demand} · checked by ${t.checkedBy||'—'}`;
   $('emEach').value=t.countedEach||0;$('emCaseWrap').style.display='flex';$('emCase').value=t.countedCase||0;$('emCaseLbl').textContent=known?('Case'+t.pack):'';
   $('emPerWrap').style.display=known?'none':'inline';$('emPer').value=PACKS[t.code]>1?PACKS[t.code]:'';
+  const mem=t.assignedTo||t.member||'';
+  let uo=(CONFIG.users||[]).filter(u=>u.active!==false).map(u=>`<option ${u.name===mem?'selected':''}>${esc(u.name)}</option>`).join('');
+  if(mem&&!(CONFIG.users||[]).some(u=>u.name===mem))uo+=`<option selected>${esc(mem)}</option>`;
+  $('emAssign').innerHTML=uo;
   $('emOutcome').value=t.status==='missing'?'missing':(t.status==='blocked'?'blocked':'auto');
   $('emNote').value=t.note||'';$('emMsg').textContent='';$('editModal').classList.remove('hidden');
 };
@@ -916,8 +937,25 @@ $('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome
   const total=zero?0:eaches+cases*pack;const newPack=(pack>1&&!known)?pack:t.pack;
   const status=out==='missing'?'missing':out==='blocked'?'blocked':(total<t.demand?'short':'good');
   const note=$('emNote').value;const member=t.checkedBy||t.assignedTo||ME;const prev=t.status;
+  const newAssignee=$('emAssign').value||member;const moving=newAssignee!==(t.assignedTo||t.member);
   $('emMsg').textContent='saving…';
   try{
+    if(moving){
+      const obj={division:t.division,bin:t.bin,code:t.code,name:t.name,pack:newPack,zone:t.zone,level:(t.level==null?'':t.level),systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:t.window,statusFlag:t.statusFlag,status,countedEach:eaches,countedCase:cases,countedTotal:total,checkedBy:(status!=='open'?(t.checkedBy||newAssignee):''),checkedAt:t.checkedAt||0,note,fixed:t.fixed||false};
+      const tgt=t.day+'__'+t.division+'__'+newAssignee+'__0';
+      await setDoc(doc(db,'bundles',tgt),{day:t.day,division:t.division,member:newAssignee,archived:false,updatedAt:Date.now(),tasks:{[t._key]:obj}},{merge:true});addWrites(1);
+      await updateDoc(doc(db,'bundles',t._docId),new FieldPath('tasks',t._key),deleteField(),'updatedAt',Date.now());addWrites(1);
+      const oldM=t.assignedTo||t.member,incOld={updatedAt:Date.now(),assigned:increment(-1)};
+      if(prev!=='open'){incOld.checked=increment(-1);incOld[prev]=increment(-1);incOld.eaches=increment(-(t.countedEach||0));incOld.cases=increment(-(t.countedCase||0));}
+      await setDoc(doc(db,'stats',t.day+'__'+oldM),incOld,{merge:true});addWrites(1);
+      const incNew={updatedAt:Date.now(),assigned:increment(1)};
+      if(status!=='open'){incNew.checked=increment(1);incNew[status]=increment(1);incNew.eaches=increment(eaches);incNew.cases=increment(cases);}
+      await setDoc(doc(db,'stats',t.day+'__'+newAssignee),incNew,{merge:true});addWrites(1);
+      if(pack>1&&!known)writePack(t.code,pack);
+      t._docId=tgt;t.member=newAssignee;t.assignedTo=newAssignee;Object.assign(t,{status,countedEach:eaches,countedCase:cases,countedTotal:total,pack:newPack,note,checkedBy:obj.checkedBy});
+      saveDetailCache();$('editModal').classList.add('hidden');if(typeof renderProgress==='function')renderProgress();renderDetail();
+      return;
+    }
     const kp=f=>new FieldPath('tasks',t._key,f);
     await updateDoc(doc(db,'bundles',t._docId),kp('status'),status,kp('countedEach'),eaches,kp('countedCase'),cases,kp('countedTotal'),total,kp('pack'),newPack,kp('note'),note,kp('checkedBy'),member,kp('checkedAt'),t.checkedAt||Date.now(),kp('editedBy'),ME,kp('editedAt'),Date.now(),'updatedAt',Date.now());addWrites(1);
     if(pack>1&&!known)writePack(t.code,pack);
