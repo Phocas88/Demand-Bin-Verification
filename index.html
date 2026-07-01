@@ -143,6 +143,13 @@
   <!-- DASHBOARD -->
   <section id="view-dash" class="view hidden">
     <div class="panel">
+      <div class="row-f"><b>Active run:</b> <span id="activeRunLbl" class="pill">—</span>
+        <span class="grow"></span>
+        <label>Resume a previous day:</label><input class="in" type="date" id="resumeDate" style="width:160px">
+        <button class="ghost act" id="resumeDay">Make active</button></div>
+      <div id="resumeMsg" class="note" style="margin-top:6px">Use this to hand yesterday's unfinished bins back to the team — it becomes the active run for everyone.</div>
+    </div>
+    <div class="panel">
       <div class="row-f"><h2 style="margin:0">Live progress</h2><span class="pill" id="windowPill"></span><div class="grow"></div>
         <button class="act" id="refreshDash">Refresh totals</button><span id="dashStamp" class="note"></span></div>
       <div class="cards" id="dashCards"></div>
@@ -352,7 +359,8 @@ function buildNav(){const nav=$('nav');nav.innerHTML='';
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));$('view-'+id).classList.remove('hidden');
   [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));
   if(id==='check')loadMine(false);
-  if(id==='arch'&&$('archDay')&&!$('archDay').value)$('archDay').value=activeDay();}
+  if(id==='arch'&&$('archDay')&&!$('archDay').value)$('archDay').value=activeDay();
+  if(id==='dash')setActiveLbl();}
 
 /* ================= SETTINGS / USERS ================= */
 function renderUsers(){
@@ -648,7 +656,7 @@ $('listModal').addEventListener('click',e=>{if(e.target===$('listModal'))$('list
 $('refreshDash').onclick=loadDash;
 async function loadDash(){await refreshActive();const day=activeDay();
   try{
-    $('windowPill').textContent=ACTIVE?((ACTIVE.window||'?')+'-day window · run '+day):'no active run';
+    setActiveLbl();$('windowPill').textContent=ACTIVE?((ACTIVE.window||'?')+'-day window · run '+day):'no active run';
     const ms=await getDocs(query(collection(db,'stats'),where('day','==',day)));addReads(ms.size||1);
     const stats=ms.docs.map(d=>d.data());const tot={assigned:0,checked:0,good:0,short:0,missing:0,blocked:0};
     stats.forEach(s=>{for(const k in tot)tot[k]+=s[k]||0;});
@@ -665,6 +673,40 @@ async function loadDash(){await refreshActive();const day=activeDay();
     $('dashStamp').textContent='totals as of '+new Date().toLocaleTimeString();
   }catch(e){$('dashStamp').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 }
+function setActiveLbl(){if($('activeRunLbl'))$('activeRunLbl').textContent=ACTIVE&&ACTIVE.day?('run '+ACTIVE.day+(ACTIVE.window?(' · '+ACTIVE.window+'-day'):'')):'none';}
+if($('resumeDate')){const d=new Date();d.setDate(d.getDate()-1);const p=n=>String(n).padStart(2,'0');$('resumeDate').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+$('resumeDay')&&($('resumeDay').onclick=async()=>{
+  const day=$('resumeDate').value;if(!day){alert('Pick the date to resume.');return;}
+  if(!confirm('Make '+day+' the active run so your team can finish it? (You can switch back the same way.)'))return;
+  $('resumeMsg').textContent='looking for '+day+'\u2026';
+  try{
+    let bq=await getDocs(query(collection(db,'bundles'),where('day','==',day)));addReads(bq.size||1);
+    if(!bq.empty){
+      const members=new Set();let division='',win='';const unarch=[];
+      bq.docs.forEach(d=>{const dt=d.data();members.add(dt.member);division=dt.division||division;const any=Object.values(dt.tasks||{})[0];if(any&&any.window)win=any.window;if(dt.archived)unarch.push(d.id);});
+      for(let i=0;i<unarch.length;i+=400){const b=writeBatch(db);unarch.slice(i,i+400).forEach(id=>b.update(doc(db,'bundles',id),{archived:false}));await b.commit();addWrites(Math.min(400,unarch.length-i));}
+      await setDoc(doc(db,'meta','current'),{day,division,window:win,members:[...members],active:0,resumedAt:Date.now()});addWrites(1);
+      ACTIVE={day,division,window:win};setActiveLbl();
+      $('resumeMsg').innerHTML='<span class="saved">Resumed '+day+' ('+members.size+' counter(s)). Your team can tap \u21bb Get latest and finish it.</span>';return;
+    }
+    // legacy per-bin format -> migrate into bundles (one-time read of that day)
+    $('resumeMsg').textContent=day+' is in the older format \u2014 pulling it in\u2026';
+    const ts=await getDocs(query(collection(db,'tasks'),where('day','==',day)));addReads(ts.size||1);
+    if(ts.empty){$('resumeMsg').textContent='No run found for '+day+' (checked both new and old formats).';return;}
+    const rows=ts.docs.map(d=>d.data());const byMember={};rows.forEach(t=>{const m=t.assignedTo||'';if(m)(byMember[m]=byMember[m]||[]).push(t);});
+    if(!Object.keys(byMember).length){$('resumeMsg').textContent='That day has bins but none were assigned to a counter. Re-build & assign instead.';return;}
+    const CHUNK=800;let division='';
+    for(const [m,list] of Object.entries(byMember)){
+      for(let ci=0;ci*CHUNK<list.length;ci++){const slice=list.slice(ci*CHUNK,(ci+1)*CHUNK);const tmap={};
+        slice.forEach(t=>{division=t.division||division;tmap[(t.division||'')+'|'+t.bin+'|'+t.code]={division:t.division||'',bin:t.bin,code:t.code,name:t.name,pack:t.pack,zone:t.zone,level:(t.level==null?'':t.level),systemEach:t.systemEach,systemCase:t.systemCase,systemTotal:t.systemTotal,demand:t.demand,window:t.window,statusFlag:t.statusFlag,status:t.status||'open',countedEach:t.countedEach||0,countedCase:t.countedCase||0,countedTotal:t.countedTotal||0,checkedBy:t.checkedBy||'',checkedAt:t.checkedAt||0,note:t.note||''};});
+        await setDoc(doc(db,'bundles',day+'__mig__'+m+'__'+ci),{day,division:division||'',member:m,chunk:ci,archived:false,updatedAt:Date.now(),tasks:tmap});addWrites(1);}
+    }
+    const win=(rows[0]&&rows[0].window)||'';
+    await setDoc(doc(db,'meta','current'),{day,division,window:win,members:Object.keys(byMember),active:rows.length,resumedAt:Date.now()});addWrites(1);
+    ACTIVE={day,division,window:win};setActiveLbl();
+    $('resumeMsg').innerHTML='<span class="saved">Pulled '+rows.length+' bins from '+day+' into the app. Your team can tap \u21bb Get latest and finish them.</span>';
+  }catch(e){$('resumeMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
+});
 let detailTab='totals';
 const detailKey=()=>`bv_detail_${activeDay()}`;
 function saveDetailCache(){try{localStorage.setItem(detailKey(),JSON.stringify(detail));}catch(e){}}
