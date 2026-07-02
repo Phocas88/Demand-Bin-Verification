@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NH Demand Bin Verification</title>
+<title>Forward Demand Verification</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{--navy:#1f4e78;--navy-d:#163a5a;--ink:#1a2230;--mut:#667085;--line:#e3e8ef;--bg:#f5f7fa;--card:#fff;
@@ -82,7 +82,7 @@
 </head>
 <body>
 <header>
-  <h1>Demand Bin Verification</h1><div class="grow"></div>
+  <h1>Forward Demand Verification</h1><div class="grow"></div>
   <div class="meta"><span id="whoami"></span>
     <span class="reads" title="Approx Firestore reads this session">reads <b id="reads">0</b></span>
     <span class="reads" title="Approx Firestore writes this session">writes <b id="writes">0</b></span>
@@ -109,8 +109,8 @@
     <div class="panel">
       <h2>1 · Build today's list</h2>
       <div class="drops">
-        <div class="drop" id="dropBin"><h3>Bin Report</h3><p>today's NH export</p><div class="fn" id="fnBin"></div><input type="file" id="fileBin" accept=".xlsx,.xls,.csv" class="hidden"></div>
-        <div class="drop" id="dropDem"><h3>Demand Report (CSV)</h3><p>exported from your demand system</p><div class="fn" id="fnDem"></div><input type="file" id="fileDem" accept=".xlsx,.xls,.csv" class="hidden"></div>
+        <div class="drop" id="dropBin"><h3>Bin Report</h3><p>Inventory Bin Report</p><div class="fn" id="fnBin"></div><input type="file" id="fileBin" accept=".xlsx,.xls,.csv" class="hidden"></div>
+        <div class="drop" id="dropDem"><h3>Demand Report</h3><p>Ed's Portal Forward Demand CSV</p><div class="fn" id="fnDem"></div><input type="file" id="fileDem" accept=".xlsx,.xls,.csv" class="hidden"></div>
       </div>
       <div class="row-f"><label>Division</label><select class="in" id="divSel"></select></div>
       <div class="row-f">
@@ -199,6 +199,18 @@
       <div class="row-f"><button class="ghost act" id="addDiv">+ Add division</button>
         <label>Re-check after</label><input class="in" type="number" id="setWindow" value="7" min="1" style="width:64px"> days</div>
       <div class="row-f"><button class="act" id="saveSettings">Save settings &amp; team</button><span id="setMsg" class="note"></span></div>
+    </div>
+  </section>
+
+  <!-- INVESTIGATE / IC CLERK -->
+  <section id="view-invest" class="view hidden">
+    <div class="panel">
+      <div class="row-f"><h2 style="margin:0">Investigate &mdash; bins with issues</h2><span class="pill" id="investTot"></span><div class="grow"></div>
+        <button class="ghost act" id="investPrint">🖨 Print</button>
+        <button class="act" id="investLoad">↻ Load / Refresh</button><span id="investMsg" class="note"></span></div>
+      <p class="note">Every bin the team flagged (missing / short / blocked). Add notes, tick <b>Located</b> when you find the inventory, and <b>Cleared</b> when the bin is resolved. Everything saves automatically.</p>
+      <div class="row-f" id="investFilters" style="gap:6px;flex-wrap:wrap"></div>
+      <div id="investBody"><div class="empty">Press &ldquo;Load / Refresh&rdquo; to pull the bins that need investigating.</div></div>
     </div>
   </section>
 
@@ -357,13 +369,14 @@ function submitPin(){
   $('gateErr').innerHTML='<div class="err">PIN not recognized.</div>';
 }
 function enter(){
-  $('whoami').textContent=ME+' · '+(ROLE==='manager'?'IC Manager':'Checker');
+  $('whoami').textContent=ME+' · '+(ROLE==='manager'?'IC Manager':ROLE==='clerk'?'IC Clerk':'Checker');
   $('gate').classList.add('hidden');$('app').classList.remove('hidden');
   buildNav();
 }
 $('signout').onclick=()=>{ME='';ROLE='';$('app').classList.add('hidden');$('gate').classList.remove('hidden');$('gateErr').innerHTML='';};
 
-const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['rep','Reports'],['set','Team & Settings'],['arch','Archive']],
+const VIEWS={manager:[['build','Build & Assign'],['dash','Dashboard'],['invest','Investigate'],['rep','Reports'],['set','Team & Settings'],['arch','Archive']],
+             clerk:[['invest','Investigate'],['arch','Archive']],
              checker:[['check','My Checks'],['arch','Archive']]};
 function buildNav(){const nav=$('nav');nav.innerHTML='';
   VIEWS[ROLE].forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>show(id);nav.appendChild(b);});
@@ -374,7 +387,8 @@ function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.add(
   [...$('nav').children].forEach((b,i)=>b.classList.toggle('on',VIEWS[ROLE][i][0]===id));
   if(id==='check')loadMine(false);
   if(id==='arch'&&$('archDay')&&!$('archDay').value)$('archDay').value=activeDay();
-  if(id==='dash')setActiveLbl();}
+  if(id==='dash')setActiveLbl();
+  if(id==='invest')loadInvest(false);}
 
 /* ================= SETTINGS / USERS ================= */
 function renderUsers(){
@@ -383,7 +397,7 @@ function renderUsers(){
   $('userBody').innerHTML=us.map((u,i)=>`<tr>
     <td><input class="in un" data-i="${i}" value="${esc(u.name)}" style="width:130px"></td>
     <td><input class="in up" data-i="${i}" value="${esc(u.pin)}" style="width:80px" inputmode="numeric"></td>
-    <td><select class="in ur" data-i="${i}"><option value="checker"${u.role!=='manager'?' selected':''}>Checker</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option></select></td>
+    <td><select class="in ur" data-i="${i}"><option value="checker"${(u.role||'checker')==='checker'?' selected':''}>Checker</option><option value="clerk"${u.role==='clerk'?' selected':''}>IC Clerk</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option></select></td>
     <td><input type="checkbox" class="ua" data-i="${i}" ${u.active!==false?'checked':''} style="width:18px;height:18px"></td>
     <td><button class="ghost act urm" data-i="${i}" style="padding:5px 9px">✕</button></td></tr>`).join('')
     ||'<tr><td colspan="5" class="empty">No users yet — add your team, then Save.</td></tr>';
@@ -421,12 +435,20 @@ function wireDrop(dropId,inputId,kind){const drop=$(dropId),inp=$(inputId);
   drop.onclick=()=>inp.click();
   inp.onchange=async e=>{const f=e.target.files[0];if(!f)return;const wb=await readFile(f);
     if(kind==='bin'){binRows=firstSheet(wb,r=>col(r,['Bin Name'])&&col(r,['Qty On Hand']));if(!binRows){alert('Not a bin report.');return;}$('dropBin').classList.add('loaded');$('fnBin').textContent='✓ '+f.name;}
-    else{demRows=firstSheet(wb,r=>col(r,['Product Code']));if(!demRows){alert('No Product Code column found.');return;}$('dropDem').classList.add('loaded');$('fnDem').textContent='✓ '+f.name;fillDemCols();}
+    else{demRows=firstSheet(wb,r=>col(r,['Product Code']));if(!demRows){alert('No Product Code column found.');return;}$('dropDem').classList.add('loaded');$('fnDem').textContent='✓ '+f.name;fillDemCols();autoDetectFromName(f.name);}
   };
   ['dragover'].forEach(ev=>drop.addEventListener(ev,e=>e.preventDefault()));
   drop.addEventListener('drop',async e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){inp.files=e.dataTransfer.files;inp.onchange({target:{files:[f]}});}});
 }
 wireDrop('dropBin','fileBin','bin');wireDrop('dropDem','fileDem','dem');
+// Files come as: Demand_<DIV>-<Name>_<days forward>_<pull date>.csv  -> auto-pick division + window
+function autoDetectFromName(name){
+  const m=String(name).match(/demand[ _-]+([A-Za-z0-9]+)-[^_]*_(\d+)_/i);
+  if(!m)return;const dv=m[1].toUpperCase(),days=m[2];let hit=[];
+  const sel=$('divSel');if(sel&&[...sel.options].some(o=>o.value.toUpperCase()===dv)){sel.value=[...sel.options].find(o=>o.value.toUpperCase()===dv).value;hit.push('division '+dv);}
+  const w=$('windowSel');if(w){if(![...w.options].some(o=>o.text===days)){const op=document.createElement('option');op.text=days;op.value=days;w.appendChild(op);}w.value=days;hit.push(days+'-day forward');}
+  if(hit.length)$('computeMsg').innerHTML='<span class="saved">Auto-detected '+hit.join(' · ')+' from the file name.</span>';
+}
 function fillDemCols(){
   const cands=Object.keys(demRows[0]).filter(k=>/qty|demand|need|day|week|order/i.test(k)||/\d/.test(k));
   const opts=cands.length?cands:Object.keys(demRows[0]);
@@ -502,7 +524,7 @@ $('addMember')&&($('addMember').onclick=()=>{memberRows.push({name:'',levels:''}
 function renderAssign(rows){$('zoneBody').innerHTML=(rows&&rows.length)?rows.map(b=>`<tr><td><b>${esc(b.member)}</b></td><td>${esc(b.levels)}</td><td>${b.lines}</td><td>${esc(b.coverage)}</td></tr>`).join('')
   :'<tr><td colspan="4" class="empty">Add members and press Auto-assign.</td></tr>';}
 function renderZones(){
-  if(memberRows.length===1&&!memberRows[0].name){memberRows=(CONFIG.users||[]).filter(u=>u.active!==false&&u.role!=='manager').map(u=>({name:u.name,levels:''}));if(!memberRows.length)memberRows=[{name:'',levels:''}];}
+  if(memberRows.length===1&&!memberRows[0].name){memberRows=(CONFIG.users||[]).filter(u=>u.active!==false&&u.role!=='manager'&&u.role!=='clerk').map(u=>({name:u.name,levels:''}));if(!memberRows.length)memberRows=[{name:'',levels:''}];}
   renderMemberInputs();renderAssign(null);$('unassignedMsg').innerHTML='';
 }
 // dynamic add-member button (panel built without one) -> add control
@@ -968,6 +990,55 @@ $('emSave').onclick=async()=>{const t=window._grid[emIdx];const out=$('emOutcome
     saveDetailCache();$('editModal').classList.add('hidden');renderDetail();
   }catch(e){$('emMsg').innerHTML='<span style="color:#c62828">'+esc(e.code||e.message)+'</span>';}
 };
+/* ================= INVESTIGATE / IC CLERK ================= */
+async function loadInvest(force){
+  if(!force){if(detail){renderInvest();return;}try{const c=localStorage.getItem('bv_detail_all');if(c){detail=JSON.parse(c);renderInvest();return;}}catch(e){}}
+  $('investMsg').textContent='getting latest\u2026';
+  try{const qs=await getDocs(query(collection(db,'bundles'),where('archived','==',false)));addReads(qs.size||1);
+    detail=flattenBundles(qs.docs);try{localStorage.setItem('bv_detail_all',JSON.stringify(detail));}catch(e){}
+    renderInvest();$('investMsg').textContent=detail.length+' active bins \u00b7 '+qs.size+' reads';
+  }catch(e){$('investMsg').innerHTML='<span style="color:#c62828">'+errMsg(e)+'</span>';}
+}
+function renderInvest(){
+  if(!detail){$('investBody').innerHTML='<div class="empty">Press \u201cLoad / Refresh\u201d.</div>';return;}
+  const isOut=t=>['short','missing','blocked'].includes(t.status);
+  const r=rollup();const missOf=t=>{const o=r[(t.division||'')+'|'+t.code];return o?Math.max(0,(o.demand||0)-(o.located||0)):0;};
+  const allOuts=detail.filter(isOut);
+  const f=window._invFilter||'open';
+  let outs=allOuts.slice();
+  if(f==='open')outs=outs.filter(t=>!t.cleared);
+  else if(f==='located')outs=outs.filter(t=>t.located&&!t.cleared);
+  else if(f==='missing')outs=outs.filter(t=>t.status==='missing');
+  else if(f==='cleared')outs=outs.filter(t=>t.cleared);
+  outs.sort((a,b)=>natcmp(a.bin,b.bin)||(a.code<b.code?-1:1));
+  window._inv=outs;
+  const totMissing=Object.values(r).reduce((a,o)=>a+Math.max(0,(o.demand||0)-(o.located||0)),0);
+  $('investTot').textContent='total missing qty: '+fmt(totMissing);
+  const nOpen=allOuts.filter(t=>!t.cleared).length,nCleared=allOuts.filter(t=>t.cleared).length,nMiss=allOuts.filter(t=>t.status==='missing').length,nLoc=allOuts.filter(t=>t.located&&!t.cleared).length;
+  const fb=(id,lbl,n)=>`<button class="${f===id?'on':''}" data-inv="${id}" style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;${f===id?'background:var(--navy);color:#fff;border-color:var(--navy)':'background:#fff;color:var(--mut)'}">${lbl} ${n}</button>`;
+  $('investFilters').innerHTML=fb('open','To investigate',nOpen)+fb('missing','Missing',nMiss)+fb('located','Located, not cleared',nLoc)+fb('cleared','Cleared',nCleared)+fb('all','All issues',allOuts.length);
+  $('investFilters').querySelectorAll('[data-inv]').forEach(b=>b.onclick=()=>{window._invFilter=b.dataset.inv;renderInvest();});
+  $('investBody').innerHTML=`<div class="scroll"><table><thead><tr><th>Bin</th><th>Div</th><th>Product</th><th>Demand</th><th>Counted</th><th>Prod. missing</th><th>Status</th><th>Note</th><th>Located</th><th>Cleared</th></tr></thead><tbody>${
+    outs.map((t,i)=>`<tr style="${t.cleared?'opacity:.55':''}"><td><b>${esc(t.bin)}</b></td><td>${esc(t.division||'')}</td><td>${esc(t.code)}<br><span class="note">${esc(t.name||'')}</span></td>
+      <td>${fmt(t.demand)}</td><td>${t.status==='missing'?'0':fmt(t.countedTotal)}</td><td style="font-weight:800;color:#c62828">${fmt(missOf(t))}</td>
+      <td><span class="badge b-${t.status}">${esc(t.status)}</span></td>
+      <td><input class="in" value="${esc(t.invNote||'')}" onchange="window.invSet(${i},'invNote',this.value)" style="min-width:150px" placeholder="notes\u2026"></td>
+      <td style="text-align:center"><input type="checkbox" ${t.located?'checked':''} onclick="window.invSet(${i},'located',this.checked)" style="width:20px;height:20px"></td>
+      <td style="text-align:center"><input type="checkbox" ${t.cleared?'checked':''} onclick="window.invSet(${i},'cleared',this.checked)" style="width:20px;height:20px"></td></tr>`).join('')||'<tr><td colspan="10" class="empty">Nothing in this filter. \ud83c\udf89</td></tr>'}</tbody></table></div>`;
+}
+window.invSet=async function(i,field,val){const t=window._inv[i];if(!t)return;t[field]=val;
+  if(field==='cleared'||field==='located')renderInvest();
+  try{await updateDoc(doc(db,'bundles',t._docId),new FieldPath('tasks',t._key,field),val,'updatedAt',Date.now());addWrites(1);try{localStorage.setItem('bv_detail_all',JSON.stringify(detail));}catch(e){}}
+  catch(e){alert('Could not save: '+(e.code||e.message));}
+};
+$('investLoad')&&($('investLoad').onclick=()=>loadInvest(true));
+$('investPrint')&&($('investPrint').onclick=()=>{
+  const outs=(window._inv||[]);if(!outs.length){alert('Nothing to print in this view.');return;}
+  const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print.');return;}
+  const rows=outs.map(t=>`<tr><td>${esc(t.bin)}</td><td>${esc(t.division||'')}</td><td>${esc(t.code)} ${esc(t.name||'')}</td><td>${t.demand||0}</td><td>${t.status==='missing'?0:(t.countedTotal||0)}</td><td>${t.status}</td><td>${esc(t.invNote||'')}</td><td>${t.located?'\u2713':''}</td><td>${t.cleared?'\u2713':''}</td></tr>`).join('');
+  w.document.write(`<html><head><title>Investigation Sheet</title><style>body{font-family:Arial;font-size:12px;margin:16px}h2{margin:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 7px;text-align:left}th{background:#e8eef6;font-size:11px}@media print{.np{display:none}}</style></head><body><h2>Investigation Sheet</h2><div style="color:#555;margin-bottom:8px">${new Date().toLocaleString()} \u00b7 ${outs.length} bins</div><table><thead><tr><th>Bin</th><th>Div</th><th>Product</th><th>Demand</th><th>Counted</th><th>Status</th><th>Note</th><th>Located</th><th>Cleared</th></tr></thead><tbody>${rows}</tbody></table><button class="np" onclick="window.print()" style="margin-top:12px;padding:9px 16px;font-weight:700">Print</button></body></html>`);
+  w.document.close();
+});
 /* ================= REPORTS & KPIs ================= */
 function dstr(d){const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return dstr(d);}
