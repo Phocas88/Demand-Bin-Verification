@@ -304,6 +304,22 @@ function natcmp(a,b){const ka=natkey(a),kb=natkey(b);for(let i=0;i<Math.max(ka.l
 function col(row,names){const k=Object.keys(row);for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase()===w.toLowerCase());if(h)return h;}for(const w of names){const h=k.find(x=>String(x).trim().toLowerCase().includes(w.toLowerCase()));if(h)return h;}return null;}
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(v){const n=Number(v);return(v===''||v==null||isNaN(n))?esc(v):n.toLocaleString();}
+const PRINT_CSS="*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a2332;margin:0;padding:26px}"
++".rhead{border-bottom:3px solid #1f3a5f;padding-bottom:9px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}"
++".rhead h1{margin:0;font-size:19px;color:#1f3a5f;letter-spacing:.3px}.rhead .sub{font-size:14px;color:#33475b;font-weight:600;margin-top:2px}"
++".rhead .meta{color:#6b7a90;font-size:10px;text-align:right}"
++".cards{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.card{border:1px solid #d7dee8;border-radius:8px;padding:7px 12px;min-width:88px}"
++".card .n{font-size:17px;font-weight:800;color:#1f3a5f}.card .l{font-size:8.5px;color:#6b7a90;text-transform:uppercase;letter-spacing:.4px}"
++"h2.sec{font-size:12px;color:#1f3a5f;margin:18px 0 6px;padding-bottom:3px;border-bottom:1.5px solid #c9d4e0;text-transform:uppercase;letter-spacing:.5px}"
++".grp{font-size:11.5px;font-weight:700;background:#eef3f9;color:#1f3a5f;padding:5px 9px;margin:14px 0 0;border-left:4px solid #1f3a5f;display:flex;justify-content:space-between}"
++"table{border-collapse:collapse;width:100%;margin:0 0 4px}"
++"th{background:#1f3a5f;color:#fff;font-size:8.5px;text-transform:uppercase;letter-spacing:.3px;padding:5px 7px;text-align:left;font-weight:600}"
++"td{padding:4px 7px;border-bottom:1px solid #e8edf3;font-size:10.5px}tr:nth-child(even) td{background:#f7f9fc}"
++".prod td{font-weight:700;color:#22344a;background:#eaf0f7!important}.miss{color:#c0392b;font-weight:800}"
++".bdg{display:inline-block;padding:1px 6px;border-radius:4px;font-size:8.5px;font-weight:700}"
++".b-missing{background:#fdecea;color:#c0392b}.b-short{background:#fff3e0;color:#b9770e}.b-blocked{background:#efe8fb;color:#6b2fd0}"
++"@media print{.np{display:none}body{padding:12px}.grp,tr,table{break-inside:avoid}}";
+function rhead(sub,meta){return "<div class='rhead'><div><h1>Forward Demand Verification</h1><div class='sub'>"+sub+"</div></div><div class='meta'>"+meta+"</div></div>";}
 function errMsg(e){const m=String((e&&(e.code||e.message))||e||'');
   if(m.includes('permission-denied')||m.includes('Missing or insufficient'))return 'Permission denied \u2014 your Firestore security rules don\u2019t allow the \u201cbundles\u201d collection yet. In the Firebase console open Firestore \u2192 Rules, paste the firestore.rules file, and press Publish. Then try again.';
   if(m.includes('index'))return 'This needs a one-time index \u2014 open your browser console (F12), click the link Firestore prints, create the index, wait ~1 min, then retry.';
@@ -1033,10 +1049,32 @@ window.invSet=async function(i,field,val){const t=window._inv[i];if(!t)return;t[
 };
 $('investLoad')&&($('investLoad').onclick=()=>loadInvest(true));
 $('investPrint')&&($('investPrint').onclick=()=>{
-  const outs=(window._inv||[]);if(!outs.length){alert('Nothing to print in this view.');return;}
+  if(!detail){alert('Load the list first.');return;}
+  const isOut=t=>['short','missing','blocked'].includes(t.status);
+  const offs=(detail||[]).filter(isOut);
+  if(!offs.length){alert('No issues to print.');return;}
   const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print.');return;}
-  const rows=outs.map(t=>`<tr><td>${esc(t.bin)}</td><td>${esc(t.division||'')}</td><td>${esc(t.code)} ${esc(t.name||'')}</td><td>${t.demand||0}</td><td>${t.status==='missing'?0:(t.countedTotal||0)}</td><td>${t.status}</td><td>${esc(t.invNote||'')}</td><td>${t.located?'\u2713':''}</td><td>${t.cleared?'\u2713':''}</td></tr>`).join('');
-  w.document.write(`<html><head><title>Investigation Sheet</title><style>body{font-family:Arial;font-size:12px;margin:16px}h2{margin:0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 7px;text-align:left}th{background:#e8eef6;font-size:11px}@media print{.np{display:none}}</style></head><body><h2>Investigation Sheet</h2><div style="color:#555;margin-bottom:8px">${new Date().toLocaleString()} \u00b7 ${outs.length} bins</div><table><thead><tr><th>Bin</th><th>Div</th><th>Product</th><th>Demand</th><th>Counted</th><th>Status</th><th>Note</th><th>Located</th><th>Cleared</th></tr></thead><tbody>${rows}</tbody></table><button class="np" onclick="window.print()" style="margin-top:12px;padding:9px 16px;font-weight:700">Print</button></body></html>`);
+  const r=rollup();const missOf=t=>{const o=r[(t.division||'')+'|'+t.code];return o?Math.max(0,(o.demand||0)-(o.located||0)):0;};
+  const byDiv={};offs.forEach(t=>{(byDiv[t.division||'?']=byDiv[t.division||'?']||[]).push(t);});
+  let body='';
+  Object.keys(byDiv).sort().forEach(dv=>{const list=byDiv[dv];const byCode={};list.forEach(t=>{(byCode[t.code]=byCode[t.code]||[]).push(t);});
+    const divMiss=Object.keys(byCode).reduce((a,c)=>a+missOf(byCode[c][0]),0);
+    body+="<div class='grp'><span>Division "+esc(dv)+"</span><span>"+list.length+" bins \u00b7 missing qty <span class='miss'>"+fmt(divMiss)+"</span></span></div>";
+    body+="<table><thead><tr><th>Product / Bin</th><th>Demand</th><th>Counted</th><th>Status</th><th>Note</th><th>Located</th><th>Cleared</th></tr></thead><tbody>";
+    Object.keys(byCode).sort((a,b)=>missOf(byCode[b][0])-missOf(byCode[a][0])).forEach(code=>{
+      const bins=byCode[code].sort((a,b)=>natcmp(a.bin,b.bin));const pp=bins[0];
+      body+="<tr class='prod'><td colspan='7'>"+esc(code)+" \u2014 "+esc(pp.name||'')+" \u00b7 demand "+fmt(pp.demand)+" \u00b7 <span class='miss'>missing "+fmt(missOf(pp))+"</span></td></tr>";
+      bins.forEach(t=>{body+="<tr><td style='padding-left:18px'>"+esc(t.bin)+"</td><td>"+fmt(t.demand)+"</td><td>"+(t.status==='missing'?0:fmt(t.countedTotal))+"</td><td><span class='bdg b-"+t.status+"'>"+esc(t.status)+"</span></td><td>"+esc(t.invNote||'')+"</td><td>"+(t.located?'\u2713':'')+"</td><td>"+(t.cleared?'\u2713':'')+"</td></tr>";});
+    });
+    body+="</tbody></table>";
+  });
+  const totMiss=Object.values(r).reduce((a,o)=>a+Math.max(0,(o.demand||0)-(o.located||0)),0);
+  const openN=offs.filter(t=>!t.cleared).length,locN=offs.filter(t=>t.located).length;
+  const cards="<div class='cards'><div class='card'><div class='n'>"+offs.length+"</div><div class='l'>Bins with issues</div></div>"
+    +"<div class='card'><div class='n'>"+openN+"</div><div class='l'>Not yet cleared</div></div>"
+    +"<div class='card'><div class='n'>"+locN+"</div><div class='l'>Located</div></div>"
+    +"<div class='card'><div class='n miss'>"+fmt(totMiss)+"</div><div class='l'>Total missing qty</div></div></div>";
+  w.document.write("<html><head><title>Investigation Sheet</title><style>"+PRINT_CSS+"</style></head><body>"+rhead('Investigation Sheet',new Date().toLocaleString())+cards+body+"<button class='np' onclick='window.print()' style='margin-top:14px;padding:9px 16px;font-weight:700'>Print</button></body></html>");
   w.document.close();
 });
 /* ================= REPORTS & KPIs ================= */
@@ -1112,11 +1150,23 @@ $('repPrint')&&($('repPrint').onclick=()=>{
   if(!repData){alert('Run a report first.');return;}
   const A=aggReport(repData.stats),t=A.tot,outs=t.short+t.missing,offs=repData.offs||[];
   const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print the report.');return;}
-  const cards=[['Bins verified',t.checked],['Good',t.good+' ('+pct(t.good,t.checked)+'%)'],['Out (short+missing)',outs],['Blocked',t.blocked],['Eaches',t.eaches.toLocaleString()],['Cases',t.cases.toLocaleString()]].map(c=>`<div style='border:1px solid #888;border-radius:6px;padding:8px 12px'><div style='font-size:18px;font-weight:800'>${c[1]}</div><div style='font-size:10px;color:#555'>${c[0]}</div></div>`).join('');
-  const daily=A.days.map(d=>`<tr><td>${esc(d.day)}</td><td>${d.checked}</td><td>${d.good}</td><td>${d.short}</td><td>${d.missing}</td><td>${d.blocked}</td><td>${pct(d.good,d.checked)}%</td></tr>`).join('');
-  const kpis=A.members.map(m=>`<tr><td>${esc(m.member)}</td><td>${m.days}</td><td>${m.checked}</td><td>${m.days?Math.round(m.checked/m.days):0}</td><td>${m.good}</td><td>${m.short+m.missing}</td><td>${m.blocked}</td><td>${pct(m.good,m.checked)}%</td><td>${(m.eaches||0).toLocaleString()}</td><td>${(m.cases||0).toLocaleString()}</td></tr>`).join('');
-  const offr=offs.map(o=>`<tr><td>${esc(o.day)}</td><td>${esc(o.division||'')}</td><td>${esc(o.bin)}</td><td>${esc(o.code)}</td><td>${esc(o.name||'')}</td><td>${o.demand||0}</td><td>${o.status==='missing'?0:(o.countedTotal||0)}</td><td>${o.status}</td><td>${o.fixed?'yes':''}</td><td>${esc(o.checkedBy||'')}</td></tr>`).join('');
-  w.document.write(`<html><head><title>Verification Report ${repData.from} to ${repData.to}</title><style>body{font-family:Arial;font-size:12px;margin:16px;color:#111}h2{margin:0}h3{margin:14px 0 4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:5px 7px;text-align:left}th{background:#e8eef6;font-size:11px}@media print{.np{display:none}}</style></head><body><h2>Verification &amp; KPI Report</h2><div style='color:#555;margin-bottom:8px'>${repData.from} &rarr; ${repData.to} &middot; generated ${new Date().toLocaleString()}</div><div style='display:flex;gap:10px;flex-wrap:wrap;margin:8px 0'>${cards}</div><h3>Daily results</h3><table><thead><tr><th>Date</th><th>Verified</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th><th>Covered %</th></tr></thead><tbody>${daily}</tbody></table><h3>Counter KPIs</h3><table><thead><tr><th>Counter</th><th>Days</th><th>Bins</th><th>Avg/day</th><th>Good</th><th>Outs</th><th>Blocked</th><th>Covered %</th><th>Units counted</th><th>Cases counted</th></tr></thead><tbody>${kpis}</tbody></table><div style='font-size:10px;color:#555;margin:4px 0 8px'>Covered % = good ÷ bins (stock health of the bins they were assigned, not a grade of the counter). Units / Cases counted = quantities they physically tallied. Outs = short + missing.</div><h3>Off bins for ops (${offs.length})</h3><table><thead><tr><th>Date</th><th>Div</th><th>Bin</th><th>Code</th><th>Name</th><th>Demand</th><th>Counted</th><th>Status</th><th>Fixed</th><th>By</th></tr></thead><tbody>${offr||"<tr><td colspan='10'>None</td></tr>"}</tbody></table><button class='np' onclick='window.print()' style='margin-top:12px;padding:9px 16px;font-weight:700'>Print</button></body></html>`);
+  const cards="<div class='cards'>"+[['Bins verified',t.checked],['Good',t.good+' ('+pct(t.good,t.checked)+'%)'],['Out (short+missing)',outs],['Blocked',t.blocked],['Units counted',t.eaches.toLocaleString()],['Cases counted',t.cases.toLocaleString()]].map(c=>"<div class='card'><div class='n'>"+c[1]+"</div><div class='l'>"+c[0]+"</div></div>").join('')+"</div>";
+  const daily="<h2 class='sec'>Daily results</h2><table><thead><tr><th>Date</th><th>Verified</th><th>Good</th><th>Short</th><th>Missing</th><th>Blocked</th><th>Covered %</th></tr></thead><tbody>"+A.days.map(d=>"<tr><td>"+esc(d.day)+"</td><td>"+d.checked+"</td><td>"+d.good+"</td><td>"+d.short+"</td><td>"+d.missing+"</td><td>"+d.blocked+"</td><td>"+pct(d.good,d.checked)+"%</td></tr>").join('')+"</tbody></table>";
+  const kpis="<h2 class='sec'>Counter KPIs</h2><table><thead><tr><th>Counter</th><th>Days</th><th>Bins</th><th>Avg/day</th><th>Good</th><th>Outs</th><th>Blocked</th><th>Covered %</th><th>Units</th><th>Cases</th></tr></thead><tbody>"+A.members.map(m=>"<tr><td><b>"+esc(m.member)+"</b></td><td>"+m.days+"</td><td>"+m.checked+"</td><td>"+(m.days?Math.round(m.checked/m.days):0)+"</td><td>"+m.good+"</td><td>"+(m.short+m.missing)+"</td><td>"+m.blocked+"</td><td>"+pct(m.good,m.checked)+"%</td><td>"+(m.eaches||0).toLocaleString()+"</td><td>"+(m.cases||0).toLocaleString()+"</td></tr>").join('')+"</tbody></table><div style='font-size:9px;color:#6b7a90;margin:3px 0 6px'>Covered % = good ÷ bins (stock health of the bins assigned, not a grade of the counter). Units/Cases = quantities physically tallied. Outs = short + missing.</div>";
+  // off bins grouped by division -> status
+  const byDiv={};offs.forEach(o=>{(byDiv[o.division||'?']=byDiv[o.division||'?']||[]).push(o);});
+  let offBody="<h2 class='sec'>Off bins for ops ("+offs.length+(offs.length?" \u00b7 "+offs.filter(o=>o.fixed).length+" fixed":"")+")</h2>";
+  if(!offs.length)offBody+="<div style='color:#6b7a90'>No off bins in range. \ud83c\udf89</div>";
+  Object.keys(byDiv).sort().forEach(dv=>{const list=byDiv[dv];
+    offBody+="<div class='grp'><span>Division "+esc(dv)+"</span><span>"+list.length+" off bins</span></div>";
+    offBody+="<table><thead><tr><th>Status</th><th>Bin</th><th>Product</th><th>Demand</th><th>Counted</th><th>Fixed</th><th>By</th><th>Date</th></tr></thead><tbody>";
+    ['missing','short','blocked'].forEach(st=>{const g=list.filter(o=>o.status===st).sort((a,b)=>natcmp(a.bin,b.bin));if(!g.length)return;
+      offBody+="<tr class='prod'><td colspan='8'>"+st.toUpperCase()+" \u2014 "+g.length+"</td></tr>";
+      g.forEach(o=>{offBody+="<tr><td><span class='bdg b-"+o.status+"'>"+o.status+"</span></td><td>"+esc(o.bin)+"</td><td><b>"+esc(o.code)+"</b> <span style='color:#6b7a90'>"+esc(o.name||'')+"</span></td><td>"+fmt(o.demand)+"</td><td>"+(o.status==='missing'?0:fmt(o.countedTotal))+"</td><td>"+(o.fixed?'\u2713':'')+"</td><td>"+esc(o.checkedBy||'')+"</td><td>"+esc(o.day)+"</td></tr>";});
+    });
+    offBody+="</tbody></table>";
+  });
+  w.document.write("<html><head><title>Verification Report "+repData.from+" to "+repData.to+"</title><style>"+PRINT_CSS+"</style></head><body>"+rhead('Verification &amp; KPI Report',repData.from+' \u2192 '+repData.to+' &middot; generated '+new Date().toLocaleString())+cards+daily+kpis+offBody+"<button class='np' onclick='window.print()' style='margin-top:14px;padding:9px 16px;font-weight:700'>Print</button></body></html>");
   w.document.close();
 });
 $('repOffXlsx')&&($('repOffXlsx').onclick=()=>{
